@@ -1,14 +1,5 @@
-import React, { useEffect, useState, useRef } from "react";
-import {
-  Button,
-  Select,
-  Card,
-  List,
-  Modal,
-  Badge,
-  Table,
-  Popconfirm,
-} from "antd";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { Button, Select, Card, Modal, Badge, Table, Popconfirm } from "antd";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import { BASE_URL } from "../../../Api/baseUrl";
 import axios from "axios";
@@ -18,7 +9,6 @@ import {
   FiUsers,
   FiClock,
   FiCalendar,
-  FiMapPin,
   FiArrowRight,
   FiCheckCircle,
   FiAlertCircle,
@@ -52,6 +42,7 @@ const UpgradeStudentRound = () => {
   const [selectedNewRound, setSelectedNewRound] = useState(null);
   const [newGroups, setNewGroups] = useState([]);
   const [selectedNewGroup, setSelectedNewGroup] = useState(null);
+  const [showTargetFilters, setShowTargetFilters] = useState(true);
 
   // Upgrades Queue
   const [upgradeQueue, setUpgradeQueue] = useState([]);
@@ -62,7 +53,7 @@ const UpgradeStudentRound = () => {
   const [loading, setLoading] = useState(false);
 
   // Fetch branches
-  const fetchBranches = () => {
+  const fetchBranches = useCallback(() => {
     axios
       .get(BASE_URL + "/admin/branches/select_branch.php")
       .then((res) => {
@@ -71,10 +62,10 @@ const UpgradeStudentRound = () => {
         }
       })
       .catch((e) => console.log(e));
-  };
+  }, []);
 
   // Fetch old round groups
-  const fetchOldRoundGroups = () => {
+  const fetchOldRoundGroups = useCallback(() => {
     const dataSend = {
       admin_id: adminData[0]?.admin_id,
       round_id: round_id,
@@ -93,34 +84,41 @@ const UpgradeStudentRound = () => {
               round_id: res?.data?.message[0].round_id,
               round_name: res?.data?.message[0].round_name,
               branch_name: res?.data?.message[0].branch_name,
+              branch_id: res?.data?.message[0].branch_id,
             });
           }
         }
       })
       .catch((e) => console.log(e));
-  };
+  }, [adminData, round_id]);
+
+  // Default target branch to old round's branch once old round loads
+  // (placed after fetchRoundsByBranch definition to avoid "used before defined")
 
   // Fetch rounds by branch
-  const fetchRoundsByBranch = (branch_id) => {
-    const dataSend = {
-      branch_id: branch_id,
-    };
+  const fetchRoundsByBranch = useCallback(
+    (branch_id) => {
+      const dataSend = {
+        branch_id: branch_id,
+      };
 
-    axios
-      .post(
-        BASE_URL + "/admin/round/select_round.php",
-        JSON.stringify(dataSend)
-      )
-      .then((res) => {
-        if (res?.data?.status === "success") {
-          const activeRounds = res?.data?.message.filter(
-            (r) => r.finish !== 1 && r.round_id !== round_id
-          );
-          setNewRounds(activeRounds);
-        }
-      })
-      .catch((e) => console.log(e));
-  };
+      axios
+        .post(
+          BASE_URL + "/admin/round/select_round.php",
+          JSON.stringify(dataSend)
+        )
+        .then((res) => {
+          if (res?.data?.status === "success") {
+            const activeRounds = res?.data?.message.filter(
+              (r) => r.finish !== 1 && r.round_id !== round_id
+            );
+            setNewRounds(activeRounds);
+          }
+        })
+        .catch((e) => console.log(e));
+    },
+    [round_id]
+  );
 
   // Fetch groups by round
   const fetchGroupsByRound = (roundId) => {
@@ -142,10 +140,19 @@ const UpgradeStudentRound = () => {
       .catch((e) => console.log(e));
   };
 
+  // Default target branch to old round's branch once old round loads
+  useEffect(() => {
+    if (oldRound?.branch_id && !selectedBranch) {
+      setSelectedBranch(oldRound.branch_id);
+      fetchRoundsByBranch(oldRound.branch_id);
+      setShowTargetFilters(true);
+    }
+  }, [oldRound, selectedBranch, fetchRoundsByBranch]);
+
   useEffect(() => {
     fetchBranches();
     fetchOldRoundGroups();
-  }, []);
+  }, [fetchBranches, fetchOldRoundGroups]);
 
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
@@ -159,6 +166,7 @@ const UpgradeStudentRound = () => {
     setSelectedNewRound(round);
     setSelectedNewGroup(null);
     fetchGroupsByRound(round.round_id);
+    setShowTargetFilters(false);
   };
 
   const handleNewGroupSelect = (group) => {
@@ -545,59 +553,101 @@ const UpgradeStudentRound = () => {
 
                   {/* New Round Section */}
                   <div className="round-section new-round">
-                    <div className="section-header">
+                    <div
+                      className="section-header"
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
                       <div className="header-badge target">
                         <BiGroup className="badge-icon" />
                         <span>Target Round</span>
                       </div>
-                    </div>
-
-                    <div className="filters-section">
-                      <div className="filter-group">
-                        <label className="filter-label">
-                          <BiBuilding className="label-icon" />
-                          <span>Step 1: Select Branch</span>
-                        </label>
-                        <Select
-                          placeholder="Choose a branch"
-                          options={branchOptions}
-                          onChange={handleBranchChange}
-                          value={selectedBranch}
-                          style={{ width: "100%" }}
-                          size="large"
-                          className="custom-select"
-                        />
-                      </div>
-                    </div>
-
-                    {selectedBranch && newRounds.length > 0 && (
-                      <div className="rounds-list">
-                        <div className="list-header">
-                          <BiTransfer className="list-icon" />
-                          <h6 className="list-title">Step 2: Select Round</h6>
+                      {!showTargetFilters && (
+                        <div>
+                          <Button
+                            // size="small"
+                            style={{
+                              padding: "20px 5px",
+                              backgroundColor: "transparent",
+                              border: "none",
+                            }}
+                            className="header-badge target"
+                            onClick={() => setShowTargetFilters(true)}
+                          >
+                            Change Branch / Round
+                          </Button>
                         </div>
-                        <div className="rounds-scroll">
-                          {newRounds.map((round) => (
-                            <div
-                              key={round.round_id}
-                              className={`round-card ${
-                                selectedNewRound?.round_id === round.round_id
-                                  ? "selected"
-                                  : ""
-                              }`}
-                              onClick={() => handleNewRoundSelect(round)}
-                            >
-                              <div className="round-card-content">
-                                <BiTransfer className="round-icon" />
-                                <span className="round-name">
-                                  {round.round_name}
-                                </span>
-                              </div>
+                      )}
+                    </div>
+                    {oldRound && (
+                      <Card className="round-info-card source-card">
+                        <div className="round-info">
+                          <h5 className="round-title">
+                            {newRounds[0]?.round_name || oldRound?.round_name}
+                          </h5>
+                          <div className="round-meta">
+                            <div className="meta-item">
+                              <BiBuilding className="meta-icon" />
+                              <span>{oldRound.branch_name}</span>
                             </div>
-                          ))}
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+
+                    {showTargetFilters && (
+                      <div className="filters-section">
+                        <div className="filter-group">
+                          <label className="filter-label">
+                            <BiBuilding className="label-icon" />
+                            <span>Step 1: Select Branch</span>
+                          </label>
+                          <Select
+                            placeholder="Choose a branch"
+                            options={branchOptions}
+                            onChange={handleBranchChange}
+                            value={selectedBranch}
+                            style={{ width: "100%" }}
+                            size="large"
+                            className="custom-select"
+                          />
                         </div>
                       </div>
                     )}
+
+                    {showTargetFilters &&
+                      selectedBranch &&
+                      newRounds.length > 0 && (
+                        <div className="rounds-list">
+                          <div className="list-header">
+                            <BiTransfer className="list-icon" />
+                            <h6 className="list-title">Step 2: Select Round</h6>
+                          </div>
+                          <div className="rounds-scroll">
+                            {newRounds.map((round) => (
+                              <div
+                                key={round.round_id}
+                                className={`round-card ${
+                                  selectedNewRound?.round_id === round.round_id
+                                    ? "selected"
+                                    : ""
+                                }`}
+                                onClick={() => handleNewRoundSelect(round)}
+                              >
+                                <div className="round-card-content">
+                                  <BiTransfer className="round-icon" />
+                                  <span className="round-name">
+                                    {round.round_name}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                     {selectedNewRound && newGroups.length > 0 && (
                       <div className="groups-list">
@@ -658,12 +708,14 @@ const UpgradeStudentRound = () => {
                       </div>
                     )}
 
-                    {selectedBranch && newRounds.length === 0 && (
-                      <div className="empty-state">
-                        <FiAlertCircle className="empty-icon" />
-                        <p>No active rounds available in this branch</p>
-                      </div>
-                    )}
+                    {showTargetFilters &&
+                      selectedBranch &&
+                      newRounds.length === 0 && (
+                        <div className="empty-state">
+                          <FiAlertCircle className="empty-icon" />
+                          <p>No active rounds available in this branch</p>
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
