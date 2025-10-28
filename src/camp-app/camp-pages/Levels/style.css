@@ -1,0 +1,53 @@
+.form_field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form_field .form_label {
+  font-size: 18px;
+}
+
+.form_field .form_input {
+  width: 100%;
+  border-radius: 5px;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+.form_field textarea {
+  border-radius: 5px !important;
+  border: 1px solid #ccc;
+}
+
+.form_input:focus {
+  outline-color: #eb5d22;
+}
+
+.del_icon {
+  color: red;
+  font-size: 23px;
+}
+
+.hide_content {
+  color: red;
+  font-size: 23px;
+}
+
+.visible_content {
+  color: green;
+  font-size: 23px;
+}
+
+:where(.css-dev-only-do-not-override-142vneq).ant-btn-variant-outlined,
+:where(.css-dev-only-do-not-override-142vneq).ant-btn-variant-dashed {
+  background-color: #053d3c !important;
+  color: white !important;
+  border: 1px solid #053d3c !important;
+}
+
+:where(.css-dev-only-do-not-override-142vneq).ant-dropdown
+  .ant-dropdown-menu
+  .ant-dropdown-menu-item:hover {
+  background-color: transparent !important;
+}

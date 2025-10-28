@@ -1,0 +1,40 @@
+.my-gallery {
+  padding-right: 0;
+}
+.my-gallery img {
+  width: 100%;
+}
+.my-gallery figure {
+  margin-bottom: 30px;
+}
+.my-gallery figcaption {
+  display: none;
+}
+.my-gallery.gallery-with-description img {
+  padding: 10px !important;
+  border: 1px solid #ddd !important;
+  border-bottom: none !important;
+  border-radius: 15px 15px 0 0 !important;
+}
+.my-gallery.gallery-with-description a > div {
+  border-top: none !important;
+  margin-bottom: 0;
+  padding: 5px 10px 10px 10px;
+  border-radius: 0 0 15px 15px !important;
+}
+.my-gallery.gallery-with-description h4 {
+  margin-top: 0px;
+}
+.my-gallery.gallery figure.img-hover a > div {
+  overflow: hidden;
+}
+.my-gallery.gallery figure.img-hover.hover-12 a > div {
+  background: #158df7;
+}
+.my-gallery.gallery figure.img-hover.hover-12 a > div:hover img {
+  opacity: 0.7;
+}
+
+#aniimated-thumbnials figure:nth-child(12), #aniimated-thumbnials figure:nth-child(11), #aniimated-thumbnials figure:nth-child(10), #aniimated-thumbnials figure:nth-child(9) {
+  margin-bottom: 30px;
+}/*# sourceMappingURL=photoswipe.css.map */

@@ -1,0 +1,116 @@
+#root
+  > div
+  > div.page-wrapper.default
+  > div
+  > div.page-body
+  > div
+  > div
+  > div
+  > div {
+  width: 100% !important;
+  max-width: unset !important;
+}
+
+.Chat_continer {
+  height: 95% !important;
+  padding: 0px !important;
+}
+
+.chat_body {
+  height: 85vh !important;
+  padding: 0px !important;
+}
+
+.chat_messages {
+  background-color: unset !important;
+  padding: 0px !important;
+  box-shadow: unset !important;
+}
+
+.chat_messages {
+  background-color: unset !important;
+  padding: 0px !important;
+  border: unset !important;
+  /* overflow: hidden !important; */
+  overflow-y: scroll !important;
+}
+
+.chat_header {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  background-color: #eb5d22;
+  padding: 10px 0;
+  color: white;
+}
+
+.student_data {
+  height: fit-content;
+  margin: 0px 10px;
+}
+
+.student_data p {
+  margin: 0px;
+  padding: 0px;
+}
+
+.student_data h4 {
+  margin: 0px;
+  padding: 0px;
+}
+
+.chat_messages {
+  /* background-image: url("../../../assets/images/chat_back.jpg") !important; */
+  background-image: url("../../../assets/images/chat_back.jpg") !important;
+  overflow-y: hidden;
+}
+
+#root
+  > div
+  > div.page-wrapper.default
+  > div
+  > div.page-body
+  > div
+  > div
+  > div
+  > div
+  > div
+  > input[type="text"] {
+  width: 87% !important;
+  border: 0.1px solid #eb5d22 !important;
+  margin: 0px 10px !important;
+}
+
+#root
+  > div
+  > div.page-wrapper.default
+  > div
+  > div.page-body
+  > div
+  > div
+  > div
+  > div
+  > div
+  > button {
+  background-color: #eb5d22 !important;
+  margin: 0px !important;
+}
+
+#root
+  > div
+  > div.page-wrapper.default
+  > div
+  > div.page-body
+  > div
+  > div
+  > div
+  > div
+  > div {
+  padding: 10px 20px !important;
+  margin: 0px !important;
+}
+
+/* #root > div > div.page-wrapper.default > div > div.page-body > div > div > div{
+    height: 103vh !important;
+} */

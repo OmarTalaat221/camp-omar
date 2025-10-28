@@ -1,0 +1,32 @@
+.student_data {
+  display: flex !important;
+  gap: 10px;
+  align-items: center;
+
+  font-weight: bold !important;
+  color: black;
+  font-size: 23px !important;
+
+  div {
+    p,
+    span {
+      font-size: 18px !important;
+    }
+  }
+}
+
+.payment-tabs-container {
+  display: flex;
+  justify-content: center;
+}
+
+.payment-tabs {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.payment-tab:hover {
+  opacity: 0.8;
+}

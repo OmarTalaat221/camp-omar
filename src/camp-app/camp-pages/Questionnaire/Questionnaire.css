@@ -1,0 +1,243 @@
+.questionnaire-container {
+  max-width: 800px;
+  margin: 30px auto;
+  padding: 0;
+  background-color: #f0efef; /* Light grey background */
+}
+
+.card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 15px; /* Slightly less margin between cards */
+  overflow: hidden; /* Ensure border-radius is applied */
+}
+
+.card-header {
+  padding: 20px 14px;
+  border-bottom: 1px solid #dadce0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  textarea {
+    border-radius: 5px !important;
+  }
+}
+
+.card-body {
+  padding: 20px 24px; /* Add padding to top */
+}
+
+.form-title-input .ant-input,
+.form-description-input .ant-input {
+  font-size: 32px;
+  font-weight: 400;
+  color: #202124;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 10px;
+  cursor: text;
+}
+
+.form-description-input .ant-input {
+  font-size: 14px;
+  color: #5f6368;
+  margin-bottom: 0;
+  resize: none;
+}
+
+.form-title-input .ant-input:focus,
+.form-description-input .ant-input:focus {
+  border-bottom: 2px solid #1a73e8;
+  padding-bottom: 4px; /* Add padding when focused */
+}
+
+.question-container {
+  margin-bottom: 15px; /* Consistent margin with cards */
+  padding: 0;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid transparent; /* Add a subtle border */
+  border-left: 6px solid transparent; /* Placeholder for active state color */
+  cursor: pointer; /* Indicate it's clickable/editable */
+}
+
+.question-container:hover {
+  border-color: #dadce0; /* Subtle border on hover */
+}
+
+.question-container.active {
+  border-left-color: #eb5d22 !important; /* Google blue */
+  border-color: #eb5d22 !important; /* Blue border around the card */
+}
+
+.question-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 20px 24px 0 24px; /* Padding for the header content */
+}
+
+.question-text-input {
+  flex-grow: 1;
+}
+
+.question-text-input .ant-input {
+  font-size: 16px;
+  color: #202124;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+  cursor: text;
+}
+
+.question-text-input .ant-input:focus {
+  border-bottom: 2px solid #1a73e8;
+  padding-bottom: 4px; /* Add padding when focused */
+}
+
+.question-type-select {
+  width: 180px; /* Fixed width for the select */
+}
+
+.question-type-select .ant-select-selector {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 10px !important; /* Add some padding */
+  border-radius: 4px;
+}
+
+.question-type-select .ant-select-selector:focus,
+.question-type-select .ant-select-selector:active {
+  border: 1px solid #dadce0 !important; /* Add border on focus/active */
+}
+
+.question-body {
+  padding: 0 24px 20px 24px; /* Padding for the body content */
+}
+
+.choice-input-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.choice-input-container .ant-input {
+  flex-grow: 1;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+  cursor: text;
+}
+
+.choice-input-container .ant-input:focus {
+  border-bottom: 2px solid #1a73e8;
+  padding-bottom: 4px; /* Add padding when focused */
+}
+
+.question-footer {
+  border-top: 1px solid #dadce0;
+  padding: 15px 24px; /* Padding for the footer content */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 15px;
+}
+
+.rating-container .ant-btn {
+  border: 1px solid #dadce0;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #5f6368; /* Default rating button color */
+}
+
+.rating-container .ant-btn:hover {
+  border-color: #1a73e8; /* Blue border on hover */
+}
+
+/* Styles for the Add Question button */
+.add-question-button.ant-btn-dashed {
+  border-color: #dadce0 !important;
+  color: #5f6368 !important;
+  padding: 10px 24px; /* Add padding */
+  height: auto; /* Adjust height */
+}
+
+.add-question-button.ant-btn-dashed:hover {
+  border-color: #1a73e8 !important;
+  color: #1a73e8 !important;
+  background-color: #e8f0fe; /* Light blue background on hover */
+}
+
+/* Style for delete button icon */
+.anticon-delete {
+  color: #5f6368; /* Grey color for delete icon */
+}
+
+.anticon-delete:hover {
+  color: #d93025; /* Red color on hover */
+}
+
+/* Style for add option button icon */
+.add-option-button.ant-btn-text {
+  color: #5f6368; /* Grey color for icon */
+}
+
+.add-option-button.ant-btn-text:hover {
+  color: #1a73e8; /* Blue color on hover */
+}
+
+.ant-checkbox-wrapper span,
+.ant-radio-wrapper span {
+  color: #202124; /* Text color for checkbox/radio labels */
+  font-size: 14px;
+}
+
+.ant-checkbox-wrapper,
+.ant-radio-wrapper {
+  margin-right: 8px; /* Add some spacing */
+}
+
+/* Add styles for form description */
+.form-description {
+  color: #5f6368;
+  font-size: 14px;
+  margin-bottom: 20px;
+  padding: 0 0 20px 0;
+  border-bottom: 1px solid #dadce0;
+}
+
+/* Add styles for question description */
+.question-description {
+  color: #5f6368;
+  font-size: 14px;
+  margin-top: -10px;
+  margin-bottom: 15px;
+}
+
+/* Add styles for the form header */
+.form-header {
+  background-color: #fff;
+  padding: 20px 0;
+  border-bottom: 1px solid #dadce0;
+}
+
+/* Add styles for the form footer */
+.form-footer {
+  padding: 20px 0;
+  text-align: center;
+  color: #5f6368;
+  font-size: 12px;
+}

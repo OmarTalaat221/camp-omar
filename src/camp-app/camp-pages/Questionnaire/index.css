@@ -1,0 +1,16 @@
+.questionair_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    h3  {
+        font-size: 23px;
+        font-weight: semibold;
+    }
+
+    button {
+        padding: 4px;
+        border-radius: 10px;
+        background-color: var(--);
+    }
+}

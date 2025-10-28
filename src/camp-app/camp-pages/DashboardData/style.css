@@ -1,0 +1,89 @@
+.data_continer{
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 15px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 6px #ff450059;
+    border: .1px solid orangered;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.data_continer:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 6px 8px #ff450080;
+}
+
+.data_continer span{
+    width: fit-content;
+    display: block;
+}
+
+.data_continer span h4{
+   margin: 0px;
+   padding: 0px;
+   text-align: center;
+   font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.data_continer span p{
+    margin: 0px;
+    padding: 0px;
+    text-align: center;
+    font-weight: bold;
+    color: orangered;
+    font-size: clamp(0.8rem, 1.5vw, 1rem);
+}
+
+@media only screen and (max-width: 1200px) {
+    .data_continer {
+        margin: 10px;
+    }
+    
+    .dashboard_container .card-header {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+    }
+}
+
+@media only screen and (max-width: 768px) {
+    .data_continer {
+        width: 100%;
+        margin: 10px 0;
+    }
+    
+    .card-header {
+        margin-top: 50px;
+        padding: 10px;
+        grid-template-columns: repeat(1, 1fr) !important;
+    }
+}
+
+@media only screen and (max-width: 591px) {
+    .data_continer {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+        padding: 15px 10px;
+    }
+
+    .data_continer span {
+        margin: 0 auto;
+    }
+    
+    .card-body {
+        padding: 10px;
+    }
+    
+    .ant-table {
+        font-size: 12px;
+    }
+    
+    .ant-table-cell {
+        padding: 8px !important;
+    }
+}

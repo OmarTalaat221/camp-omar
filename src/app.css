@@ -1,0 +1,152 @@
+/* Add this to your main CSS file or create a new file called layout.css */
+
+.page-body-no-sidebar {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  padding: 20px;
+  transition: all 0.3s ease;
+  min-height: calc(100vh - 70px); /* Adjust based on your header height */
+}
+
+/* Ensure content spans full width when no sidebar */
+.page-body-no-sidebar .container-fluid {
+  max-width: 100%;
+  padding: 0 15px;
+}
+
+/* Override any existing sidebar margins for non-admin users */
+.page-body-no-sidebar .page-content {
+  margin: 0;
+  padding: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .page-body-no-sidebar {
+    padding: 10px;
+    min-height: calc(100vh - 60px); /* Adjust for mobile header height */
+  }
+}
+
+@media (max-width: 480px) {
+  .page-body-no-sidebar {
+    padding: 5px;
+  }
+}
+
+/* Custom page transition WITHOUT dark overlay */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-transition-enter-active {
+  opacity: 1; /* Changed from 0.7 to 1 for full visibility */
+  transform: translateY(0);
+  transition: opacity 300ms ease-in-out, transform 300ms ease-in-out;
+}
+
+.page-transition-exit {
+  opacity: 1; /* Changed from 0.7 to 1 */
+  transform: translateY(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms ease-in-out, transform 300ms ease-in-out;
+}
+
+/* REMOVED: The dark overlay rule that was causing the black background */
+
+/* Inactivity Warning Overlay - Last 30 seconds */
+.inactivity-warning-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeInWarning 0.5s ease-in-out;
+}
+
+.warning-content {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 15px;
+  padding: 30px;
+  text-align: center;
+  color: white;
+  max-width: 400px;
+  backdrop-filter: blur(10px);
+  animation: pulseWarning 2s infinite;
+}
+
+.warning-content h3 {
+  margin-bottom: 15px;
+  font-size: 24px;
+  color: #ff6b6b;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+}
+
+.warning-content p {
+  margin-bottom: 10px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+@keyframes fadeInWarning {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseWarning {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+  }
+}
+
+/* Make sure the overlay doesn't interfere with clicks when not active */
+.inactivity-warning-overlay {
+  pointer-events: auto;
+}
+
+/* Optional: Add a countdown timer effect */
+.warning-content::after {
+  content: "";
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 3px;
+  background: linear-gradient(to left, #ff6b6b, transparent);
+  border-radius: 2px;
+  animation: countdownProgress 30s linear;
+}
+
+@keyframes countdownProgress {
+  from {
+    width: 80%;
+  }
+  to {
+    width: 0%;
+  }
+}
