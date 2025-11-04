@@ -20,6 +20,7 @@ import { BiTransfer, BiGroup, BiBuilding, BiArrowBack } from "react-icons/bi";
 import { HiOutlineUserGroup } from "react-icons/hi";
 import { MdOutlineClass } from "react-icons/md";
 import "./style.css";
+import * as XLSX from "xlsx";
 
 const UpgradeStudentRound = () => {
   const { round_id } = useParams();
@@ -64,7 +65,6 @@ const UpgradeStudentRound = () => {
       .catch((e) => console.log(e));
   }, []);
 
-  // Fetch old round groups
   const fetchOldRoundGroups = useCallback(() => {
     const dataSend = {
       admin_id: adminData[0]?.admin_id,
@@ -92,10 +92,6 @@ const UpgradeStudentRound = () => {
       .catch((e) => console.log(e));
   }, [adminData, round_id]);
 
-  // Default target branch to old round's branch once old round loads
-  // (placed after fetchRoundsByBranch definition to avoid "used before defined")
-
-  // Fetch rounds by branch
   const fetchRoundsByBranch = useCallback(
     (branch_id) => {
       const dataSend = {
@@ -120,7 +116,6 @@ const UpgradeStudentRound = () => {
     [round_id]
   );
 
-  // Fetch groups by round
   const fetchGroupsByRound = (roundId) => {
     const dataSend = {
       admin_id: adminData[0]?.admin_id,
@@ -140,6 +135,162 @@ const UpgradeStudentRound = () => {
       .catch((e) => console.log(e));
   };
 
+  const exportUpgradeResults = (responseData, upgradeQueue, oldRound) => {
+    const exportData = [];
+
+    // Process the details from response
+    if (responseData.details && Array.isArray(responseData.details)) {
+      responseData.details.forEach((detail) => {
+        const queueItem = upgradeQueue.find(
+          (item) =>
+            item.oldGroup.group_id == detail.old_group &&
+            item.newGroup.group_id == detail.new_group
+        );
+
+        // Add successful students
+        if (
+          detail.successful_students &&
+          Array.isArray(detail.successful_students)
+        ) {
+          detail.successful_students.forEach((student) => {
+            exportData.push({
+              Status: "✓ Success",
+              "Student ID": student.student_id,
+              "Student Name": student.student_name,
+              "Old Round": oldRound?.round_name || "N/A",
+              "Old Group": queueItem?.oldGroup?.group_name || "N/A",
+              "Old Level": student.old_level || "N/A",
+              "New Round": queueItem?.newRound?.round_name || "N/A",
+              "New Group": queueItem?.newGroup?.group_name || "N/A",
+              "New Level":
+                queueItem?.newGroup?.group_levels?.level_name ||
+                student.new_level ||
+                "N/A",
+              Reason: "Successfully upgraded",
+              Date: new Date().toLocaleDateString(),
+              Time: new Date().toLocaleTimeString(),
+            });
+          });
+        }
+
+        // Add failed students
+        if (detail.failed_students && Array.isArray(detail.failed_students)) {
+          detail.failed_students.forEach((student) => {
+            exportData.push({
+              Status: "✗ Failed",
+              "Student ID": student.student_id,
+              "Student Name": student.student_name,
+              "Old Round": oldRound?.round_name || "N/A",
+              "Old Group": queueItem?.oldGroup?.group_name || "N/A",
+              "Old Level": student.old_level || "N/A",
+              "New Round": queueItem?.newRound?.round_name || "N/A",
+              "New Group": queueItem?.newGroup?.group_name || "N/A",
+              "New Level":
+                queueItem?.newGroup?.group_levels?.level_name || "N/A",
+              Reason: student.reason || "Unknown error",
+              Date: new Date().toLocaleDateString(),
+              Time: new Date().toLocaleTimeString(),
+            });
+          });
+        }
+      });
+    }
+
+    // If no data in details, try to parse from message
+    if (exportData.length === 0 && responseData.status === "success") {
+      // For simple success response
+      upgradeQueue.forEach((item) => {
+        exportData.push({
+          Status: "✓ Success",
+          "Student ID": "All",
+          "Student Name": "All students in group",
+          "Old Round": oldRound?.round_name || "N/A",
+          "Old Group": item.oldGroup?.group_name || "N/A",
+          "Old Level": item.oldGroup?.group_levels?.level_name || "N/A",
+          "New Round": item.newRound?.round_name || "N/A",
+          "New Group": item.newGroup?.group_name || "N/A",
+          "New Level": item.newGroup?.group_levels?.level_name || "N/A",
+          Reason: "Successfully upgraded",
+          Date: new Date().toLocaleDateString(),
+          Time: new Date().toLocaleTimeString(),
+        });
+      });
+    }
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 12 }, // Status
+      { wch: 12 }, // Student ID
+      { wch: 25 }, // Student Name
+      { wch: 20 }, // Old Round
+      { wch: 20 }, // Old Group
+      { wch: 15 }, // Old Level
+      { wch: 20 }, // New Round
+      { wch: 20 }, // New Group
+      { wch: 15 }, // New Level
+      { wch: 35 }, // Reason
+      { wch: 12 }, // Date
+      { wch: 12 }, // Time
+    ];
+    worksheet["!cols"] = columnWidths;
+
+    // Style the header row
+    const range = XLSX.utils.decode_range(worksheet["!ref"]);
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_col(C) + "1";
+      if (!worksheet[address]) continue;
+      worksheet[address].s = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "eb5d22" } },
+        alignment: { horizontal: "center", vertical: "center" },
+      };
+    }
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Upgrade Results");
+
+    // Add summary sheet
+    const summaryData = [
+      {
+        Metric: "Total Upgraded",
+        Value: responseData.summary?.total_upgraded || 0,
+      },
+      {
+        Metric: "Successful",
+        Value: exportData.filter((d) => d.Status.includes("Success")).length,
+      },
+      {
+        Metric: "Failed",
+        Value: exportData.filter((d) => d.Status.includes("Failed")).length,
+      },
+      { Metric: "Upgrade Date", Value: new Date().toLocaleDateString() },
+      { Metric: "Upgrade Time", Value: new Date().toLocaleTimeString() },
+      {
+        Metric: "Admin ID",
+        Value:
+          JSON.parse(localStorage.getItem("AdminData"))?.[0]?.admin_id || "N/A",
+      },
+    ];
+
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    summarySheet["!cols"] = [{ wch: 20 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+    // Generate filename
+    const filename = `Student_Upgrade_Report_${
+      new Date().toISOString().split("T")[0]
+    }_${Date.now()}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(workbook, filename);
+
+    return exportData.length;
+  };
+
   // Default target branch to old round's branch once old round loads
   useEffect(() => {
     if (oldRound?.branch_id && !selectedBranch) {
@@ -152,7 +303,7 @@ const UpgradeStudentRound = () => {
   useEffect(() => {
     fetchBranches();
     fetchOldRoundGroups();
-  }, [fetchBranches, fetchOldRoundGroups]);
+  }, []);
 
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
@@ -218,7 +369,6 @@ const UpgradeStudentRound = () => {
     toast.info("Removed from queue");
   };
 
-  // Submit all upgrades
   const handleSubmitAllUpgrades = () => {
     if (upgradeQueue.length === 0) {
       toast.warning("No upgrades in queue!");
@@ -247,19 +397,47 @@ const UpgradeStudentRound = () => {
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status === "success") {
-          toast.success(
-            res?.data?.message || "All students upgraded successfully!"
+        console.log("Upgrade Response:", res);
+
+        if (
+          res?.data?.status === "success" ||
+          res?.data?.status === "partial_success"
+        ) {
+          // Export results to Excel
+          const exportedCount = exportUpgradeResults(
+            res?.data,
+            upgradeQueue,
+            oldRound
           );
+
+          // Show success message
+          const message =
+            res?.data?.status === "partial_success"
+              ? `${res?.data?.message} Report exported with ${exportedCount} records.`
+              : `All students upgraded successfully! Report exported with ${exportedCount} records.`;
+
+          toast.success(message, { autoClose: 5000 });
+
+          // Show detailed summary
+          if (res?.data?.summary) {
+            toast.info(
+              `Total Upgraded: ${res?.data?.summary?.total_upgraded || 0}`,
+              { autoClose: 3000 }
+            );
+          }
+
+          // Clear queue and close modal
           setUpgradeQueue([]);
           setShowQueueModal(false);
+
+          // Refresh the old groups data
+          fetchOldRoundGroups();
         } else {
           toast.error(res?.data?.message || "Error upgrading students");
         }
       })
       .catch((e) => {
-        console.log(e);
+        console.error("Upgrade error:", e);
         toast.error("Error upgrading students");
       })
       .finally(() => {
@@ -376,17 +554,17 @@ const UpgradeStudentRound = () => {
       key: "newRound",
       render: (newRound) => newRound.round_name,
     },
-    {
-      title: "Students",
-      dataIndex: "oldGroup",
-      key: "students",
-      render: (oldGroup) => (
-        <Badge
-          count={oldGroup.student_count}
-          style={{ backgroundColor: "#eb5d22" }}
-        />
-      ),
-    },
+    // {
+    //   title: "Students",
+    //   dataIndex: "oldGroup",
+    //   key: "students",
+    //   render: (oldGroup) => (
+    //     <Badge
+    //       count={oldGroup.student_count}
+    //       style={{ backgroundColor: "#eb5d22" }}
+    //     />
+    //   ),
+    // },
     {
       title: "Action",
       key: "action",
@@ -508,23 +686,23 @@ const UpgradeStudentRound = () => {
                                     />
                                   )}
                                 </h6>
-                                <Badge
+                                {/* <Badge
                                   count={group.student_count}
                                   showZero
                                   style={{
                                     backgroundColor: "#eb5d22",
                                   }}
-                                />
+                                /> */}
                               </div>
                               <div className="group-info">
-                                <div className="info-item">
+                                {/* <div className="info-item">
                                   <FiUsers className="info-icon" />
                                   <span>{group.student_count} Students</span>
-                                </div>
-                                <div className="info-item">
+                                </div> */}
+                                {/* <div className="info-item">
                                   <FiClock className="info-icon" />
                                   <span>{group.time}</span>
-                                </div>
+                                </div> */}
                                 <div className="info-item">
                                   <FiCalendar className="info-icon" />
                                   <span>{group.start_time}</span>
@@ -575,28 +753,37 @@ const UpgradeStudentRound = () => {
                               border: "none",
                             }}
                             className="header-badge target"
-                            onClick={() => setShowTargetFilters(true)}
+                            onClick={() => {
+                              setShowTargetFilters(true);
+                              setSelectedNewRound(null);
+                              setNewGroups([]);
+                              setSelectedNewGroup(null);
+                            }}
                           >
                             Change Branch / Round
                           </Button>
                         </div>
                       )}
                     </div>
-                    {oldRound && (
-                      <Card className="round-info-card source-card">
-                        <div className="round-info">
-                          <h5 className="round-title">
-                            {newRounds[0]?.round_name || oldRound?.round_name}
-                          </h5>
-                          <div className="round-meta">
-                            <div className="meta-item">
-                              <BiBuilding className="meta-icon" />
-                              <span>{oldRound.branch_name}</span>
-                            </div>
+                    <Card className="round-info-card source-card">
+                      <div className="round-info">
+                        <h5 className="round-title">
+                          {selectedNewRound?.round_name || "Round not chosen"}
+                        </h5>
+                        <div className="round-meta">
+                          <div className="meta-item">
+                            <BiBuilding className="meta-icon" />
+                            <span>
+                              {selectedBranch
+                                ? branches.find(
+                                    (b) => b.branch_id === selectedBranch
+                                  )?.branch_name || "Select a branch"
+                                : "Select a branch"}
+                            </span>
                           </div>
                         </div>
-                      </Card>
-                    )}
+                      </div>
+                    </Card>
 
                     {showTargetFilters && (
                       <div className="filters-section">
@@ -675,23 +862,23 @@ const UpgradeStudentRound = () => {
                                 <h6 className="group-name">
                                   {group.group_name}
                                 </h6>
-                                <Badge
+                                {/* <Badge
                                   count={group.student_count}
                                   showZero
                                   style={{
                                     backgroundColor: "#52c41a",
                                   }}
-                                />
+                                /> */}
                               </div>
                               <div className="group-info">
-                                <div className="info-item">
+                                {/* <div className="info-item">
                                   <FiUsers className="info-icon" />
                                   <span>{group.student_count} Students</span>
-                                </div>
-                                <div className="info-item">
+                                </div> */}
+                                {/* <div className="info-item">
                                   <FiClock className="info-icon" />
                                   <span>{group.time}</span>
-                                </div>
+                                </div> */}
                                 <div className="info-item">
                                   <FiCalendar className="info-icon" />
                                   <span>{group.start_time}</span>
@@ -791,9 +978,9 @@ const UpgradeStudentRound = () => {
             <FiUsers className="count-icon" />
             <div className="count-content">
               <span className="count-label">Students to Upgrade</span>
-              <span className="count-number">
+              {/* <span className="count-number">
                 {selectedOldGroup?.student_count}
-              </span>
+              </span> */}
             </div>
           </div>
         </div>

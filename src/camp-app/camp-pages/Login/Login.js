@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./style.css";
 import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
@@ -10,6 +10,43 @@ const Login = () => {
     password: null,
   });
   const [loading, setLoading] = useState(false);
+  const [deviceToken, setDeviceToken] = useState(null);
+
+  // Generate or retrieve device token
+  useEffect(() => {
+    const getDeviceToken = () => {
+      // Check if device token already exists in localStorage
+      let token = localStorage.getItem("device_serial");
+
+      if (!token) {
+        // Generate new device token
+        token = generateDeviceToken();
+        // Store it in localStorage
+        localStorage.setItem("device_serial", token);
+      }
+
+      setDeviceToken(token);
+    };
+
+    getDeviceToken();
+  }, []);
+
+  // Generate unique device token
+  const generateDeviceToken = () => {
+    // Method 1: UUID-like token
+    const timestamp = new Date().getTime();
+    const random = Math.random().toString(36).substring(2, 15);
+    const userAgent = navigator.userAgent;
+    const screenResolution = `${window.screen.width}x${window.screen.height}`;
+
+    // Create a more unique identifier
+    const uniqueString = `${timestamp}-${random}-${userAgent}-${screenResolution}`;
+
+    // Simple hash function or just return a UUID-like string
+    return `device-${timestamp}-${random}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+  };
 
   const handelLogin = async () => {
     // Basic validation
@@ -18,11 +55,17 @@ const Login = () => {
       return;
     }
 
+    if (!deviceToken) {
+      toast.error("Device token not generated. Please refresh the page.");
+      return;
+    }
+
     setLoading(true);
 
     const dataSend = {
       email: LoginData?.email,
       password: LoginData?.password,
+      device_serial: deviceToken, // Include device token
     };
 
     try {

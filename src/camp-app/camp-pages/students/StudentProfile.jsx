@@ -259,6 +259,11 @@ const StudentProfile = () => {
       title: "level_name",
       dataIndex: "level_name",
       key: "level_name",
+      render: (text, row) => (
+        <p style={{ textTransform: "capitalize" }}>
+          {row?.level_data?.level_name}
+        </p>
+      ),
     },
 
     {
@@ -268,6 +273,16 @@ const StudentProfile = () => {
       render: (text, row) => (
         <p style={{ textTransform: "capitalize" }}>
           {row?.group_data?.group_name}
+        </p>
+      ),
+    },
+    {
+      title: "Round Name",
+      dataIndex: "round_name",
+      key: "round_name",
+      render: (text, row) => (
+        <p style={{ textTransform: "capitalize" }}>
+          {row?.group_data?.round_name}
         </p>
       ),
     },

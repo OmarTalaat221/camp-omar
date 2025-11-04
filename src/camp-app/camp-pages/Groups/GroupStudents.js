@@ -15,6 +15,8 @@ const GroupStudents = () => {
   const navigate = useNavigate();
   const [AddNoteModal, setAddNoteModal] = useState(null);
   const [StudentNotesModal, setStudentNotesModal] = useState(null);
+  const [RemoveModal, setRemoveModal] = useState(false);
+  const [rowData, setRowData] = useState(null);
 
   const [SessionStudents, setSessionStudents] = useState([]);
   const [StudentNotesData, setStudentNotesData] = useState([]);
@@ -90,6 +92,16 @@ const GroupStudents = () => {
               </Button>
             </>
           ) : null}
+          <Button
+            danger
+            style={{ margin: "0px 10px" }}
+            onClick={() => {
+              setRemoveModal(true);
+              setRowData(row);
+            }}
+          >
+            Remove from group
+          </Button>
         </>
       ),
     },
@@ -175,6 +187,33 @@ const GroupStudents = () => {
       .catch((e) => console.log(e));
   }
 
+  function handelRemoveFromGroup() {
+    const dataSend = {
+      subscription_id: rowData?.subscription_id,
+    };
+
+    axios
+      .post(
+        BASE_URL + "/admin/subscription/delete_student_group_sub.php",
+        JSON.stringify(dataSend)
+      )
+      .then((res) => {
+        console.log(res);
+        if (res?.data?.status == "success") {
+          toast.success(res?.data?.message || "Student removed successfully");
+          handleGetGroupStudents(); // Refresh the list
+          setRemoveModal(false);
+          setRowData(null);
+        } else {
+          toast.error(res?.data?.message || "Failed to remove student");
+        }
+      })
+      .catch((e) => {
+        console.log(e);
+        toast.error("Error occurred while removing student");
+      });
+  }
+
   useEffect(() => {
     handleGetGroupStudents();
   }, []);
@@ -231,6 +270,7 @@ const GroupStudents = () => {
                   rowClassName={(record) =>
                     record.taken_before ? "row_highlight" : ""
                   }
+                  rowKey={(record) => record.student_id}
                 />
               </div>
             </div>
@@ -238,6 +278,7 @@ const GroupStudents = () => {
         </div>
       </div>
 
+      {/* Add Note Modal */}
       <Modal
         title={`Add note for: (${AddNoteModal?.name || ""})`}
         open={AddNoteModal}
@@ -264,6 +305,7 @@ const GroupStudents = () => {
                 Type: e,
               });
             }}
+            style={{ width: "100%" }}
           />
         </div>
         <div className="form_field">
@@ -281,12 +323,13 @@ const GroupStudents = () => {
         </div>
       </Modal>
 
+      {/* Student Notes Modal */}
       <Modal
-        title={`note for: (${StudentNotesModal?.name || ""})`}
+        title={`Notes for: (${StudentNotesModal?.name || ""})`}
         open={StudentNotesModal}
         footer={
           <>
-            <Button onClick={() => setStudentNotesModal(null)}>Cancel</Button>
+            <Button onClick={() => setStudentNotesModal(null)}>Close</Button>
           </>
         }
         width={"70%"}
@@ -299,8 +342,61 @@ const GroupStudents = () => {
             }}
             columns={Notescolumns}
             dataSource={StudentNotesData}
+            rowKey={(record) => record.exceptions_complains_id}
           />
         </div>
+      </Modal>
+
+      {/* Remove from Group Modal */}
+      <Modal
+        title="Remove student from group"
+        open={RemoveModal}
+        footer={
+          <>
+            <Button
+              danger
+              style={{ margin: "0px 10px " }}
+              onClick={handelRemoveFromGroup}
+            >
+              Remove
+            </Button>
+            <Button
+              onClick={() => {
+                setRemoveModal(false);
+                setRowData(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </>
+        }
+        onCancel={() => {
+          setRemoveModal(false);
+          setRowData(null);
+        }}
+      >
+        <h3 style={{ marginBottom: "20px" }}>
+          Are you sure you want to remove this student from this group?
+        </h3>
+        {rowData && (
+          <div
+            style={{
+              padding: "10px",
+              background: "#f5f5f5",
+              borderRadius: "8px",
+            }}
+          >
+            <p>
+              <strong>Student Name:</strong> {rowData?.name}
+            </p>
+            <p>
+              <strong>Student ID:</strong> {rowData?.student_id}
+            </p>
+            <p>
+              <strong>Group:</strong> {rowData?.group_name}
+            </p>
+          </div>
+        )}
       </Modal>
     </>
   );
