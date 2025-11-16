@@ -40,6 +40,11 @@ const GroupStudents = () => {
       title: "name",
     },
     {
+      id: "phone",
+      dataIndex: "phone",
+      title: "phone",
+    },
+    {
       id: "group_name",
       dataIndex: "group_name",
       title: "group",
@@ -73,25 +78,25 @@ const GroupStudents = () => {
           >
             Chat with student
           </Button>
-          {AdminData[0]?.type == "employee" ? (
-            <>
-              <Button
-                style={{ margin: "0px 10px" }}
-                onClick={() => setAddNoteModal(row)}
-              >
-                Add Complain or exception
-              </Button>
-              <Button
-                style={{ margin: "0px 10px" }}
-                onClick={() => {
-                  setStudentNotesModal(row);
-                  handleGetStudentsNotes(row?.student_id);
-                }}
-              >
-                Show exception
-              </Button>
-            </>
-          ) : null}
+
+          <>
+            <Button
+              style={{ margin: "0px 10px" }}
+              onClick={() => setAddNoteModal(row)}
+            >
+              Add Complain or exception
+            </Button>
+            <Button
+              style={{ margin: "0px 10px" }}
+              onClick={() => {
+                setStudentNotesModal(row);
+                handleGetStudentsNotes(row?.student_id);
+              }}
+            >
+              Show exception
+            </Button>
+          </>
+
           <Button
             danger
             style={{ margin: "0px 10px" }}

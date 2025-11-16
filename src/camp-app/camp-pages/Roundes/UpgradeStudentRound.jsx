@@ -52,6 +52,8 @@ const UpgradeStudentRound = () => {
 
   // Loading state
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searchNew, setSearchNew] = useState("");
 
   // Fetch branches
   const fetchBranches = useCallback(() => {
@@ -583,6 +585,15 @@ const UpgradeStudentRound = () => {
     },
   ];
 
+  const filteredGroups = oldGroups.filter((group) =>
+    group?.group_name?.toLowerCase().includes(search.toLowerCase())
+  );
+  const filteredNewGroups = newGroups.filter((group) =>
+    group?.group_name?.toLowerCase().includes(searchNew.toLowerCase())
+  );
+
+  console.log(filteredGroups);
+
   return (
     <>
       <Breadcrumbs parent="Rounds" title="Upgrade Student Round" />
@@ -654,10 +665,35 @@ const UpgradeStudentRound = () => {
                         <MdOutlineClass className="list-icon" />
                         <h6 className="list-title">Select Group to Upgrade</h6>
                       </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <h6 className="list-title">Search Group</h6>
+                        <input
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: "5px",
+                            border: "1px solid #eb5d22",
+                            outline: "none",
+                            margin: "0px 0px 20px 0px ",
+                          }}
+                          type="text"
+                          name=""
+                          id=""
+                          onChange={(e) => {
+                            setSearch(e.target.value);
+                          }}
+                        />
+                      </div>
 
-                      {oldGroups.length > 0 ? (
+                      {filteredGroups.length > 0 ? (
                         <div className="groups-scroll">
-                          {oldGroups.map((group) => (
+                          {filteredGroups.map((group) => (
                             <div
                               key={group.group_id}
                               ref={(el) =>
@@ -813,6 +849,7 @@ const UpgradeStudentRound = () => {
                             <BiTransfer className="list-icon" />
                             <h6 className="list-title">Step 2: Select Round</h6>
                           </div>
+
                           <div className="rounds-scroll">
                             {newRounds.map((round) => (
                               <div
@@ -836,7 +873,7 @@ const UpgradeStudentRound = () => {
                         </div>
                       )}
 
-                    {selectedNewRound && newGroups.length > 0 && (
+                    {selectedNewRound && filteredNewGroups.length > 0 && (
                       <div className="groups-list">
                         <div className="list-header">
                           <MdOutlineClass className="list-icon" />
@@ -844,8 +881,33 @@ const UpgradeStudentRound = () => {
                             Step 3: Select Target Group
                           </h6>
                         </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "10px",
+                          }}
+                        >
+                          <h6 className="list-title">Search Group</h6>
+                          <input
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              borderRadius: "5px",
+                              border: "1px solid #eb5d22",
+                              outline: "none",
+                              margin: "0px 0px 20px 0px ",
+                            }}
+                            type="text"
+                            name=""
+                            id=""
+                            onChange={(e) => {
+                              setSearchNew(e.target.value);
+                            }}
+                          />
+                        </div>
                         <div className="groups-scroll">
-                          {newGroups.map((group) => (
+                          {filteredNewGroups.map((group) => (
                             <div
                               key={group.group_id}
                               ref={(el) =>

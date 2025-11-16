@@ -234,16 +234,14 @@ const StudentProfile = () => {
       key: "level_status",
       render: (text, row) => (
         <>
-          {AdminData[0]?.type == "employee" ? (
-            <>
-              <Button
-                style={{ margin: "0px 10px" }}
-                onClick={() => setAddNoteModal(row)}
-              >
-                Add Complain or exception
-              </Button>
-            </>
-          ) : null}
+          <>
+            <Button
+              style={{ margin: "0px 10px" }}
+              onClick={() => setAddNoteModal(row)}
+            >
+              Add Complain or exception
+            </Button>
+          </>
         </>
       ),
     },

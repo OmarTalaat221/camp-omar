@@ -1,23 +1,94 @@
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
-import { Button, Modal, Select, Table } from "antd";
+import { Button, Modal, Select, Table, Input } from "antd";
 import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
 import { toast } from "react-toastify";
+import { BsSearch } from "react-icons/bs";
 
 const SubscriptionList = () => {
   const [Subscriptions, setSubscriptions] = useState([]);
   const [Levels, setLevels] = useState([]);
 
   const [OpenPackLevels, setOpenPackLevels] = useState(null);
-  const [OpenPackDeleteModal, setOpenPackDeleteModal] = useState(null);
-  const [OpenPackEditModal, setOpenPackEditModal] = useState(null);
+  const [OpenPackDeleteModal, setOpenPackDeleteModal] = useState(false);
+  const [OpenPackEditModal, setOpenPackEditModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState(null);
 
-  const [AddPackLevels, setAddPackLevels] = useState(null);
+  const [AddPackLevels, setAddPackLevels] = useState(false);
   const [SelectedLevels, setSelectedLevels] = useState(null);
   const [NewPackData, setNewPackData] = useState({
-    price: null,
-    num_of_levels: null,
+    price: "",
+    num_of_levels: "",
+    title: "",
+  });
+  const [searchText, setSearchText] = useState("");
+  const [searchedColumn, setSearchedColumn] = useState("");
+
+  const handleSearch = (selectedKeys, confirm, dataIndex) => {
+    confirm();
+    setSearchText(selectedKeys[0]);
+    setSearchedColumn(dataIndex);
+  };
+
+  const handleReset = (clearFilters) => {
+    clearFilters();
+    setSearchText("");
+  };
+
+  const getColumnSearchProps = (dataIndex) => ({
+    filterDropdown: ({
+      setSelectedKeys,
+      selectedKeys,
+      confirm,
+      clearFilters,
+    }) => (
+      <div style={{ padding: 8 }}>
+        <Input
+          placeholder={`Search ${dataIndex}`}
+          value={selectedKeys[0]}
+          onChange={(e) =>
+            setSelectedKeys(e.target.value ? [e.target.value] : [])
+          }
+          onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
+          style={{ marginBottom: 8, display: "block" }}
+        />
+        <div className="d-flex gap-2">
+          <Button
+            type="primary"
+            onClick={() => handleSearch(selectedKeys, confirm, dataIndex)}
+            icon={<BsSearch />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Search
+          </Button>
+          <Button
+            onClick={() => handleReset(clearFilters)}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Reset
+          </Button>
+        </div>
+      </div>
+    ),
+    filterIcon: (filtered) => (
+      <BsSearch style={{ color: filtered ? "#1890ff" : undefined }} />
+    ),
+    onFilter: (value, record) =>
+      record[dataIndex]
+        ? record[dataIndex]
+            .toString()
+            .toLowerCase()
+            .includes(value.toLowerCase())
+        : "",
+    render: (text) =>
+      searchedColumn === dataIndex ? (
+        <span style={{ backgroundColor: "#ffc069", padding: 0 }}>{text}</span>
+      ) : (
+        text
+      ),
   });
 
   const columns = [
@@ -27,36 +98,48 @@ const SubscriptionList = () => {
       title: "#",
     },
     {
+      id: "title",
+      dataIndex: "title",
+      title: "Title",
+      ...getColumnSearchProps("title"),
+    },
+    {
       id: "price",
       dataIndex: "price",
-      title: "price",
+      title: "Price",
     },
     {
       id: "num_of_levels",
       dataIndex: "num_of_levels",
-      title: "num_of_levels",
+      title: "Number of Levels",
+      ...getColumnSearchProps("num_of_levels"),
     },
     {
       id: "action",
       dataIndex: "x",
-      title: "package Levels",
+      title: "Actions",
       render: (text, row) => (
-        <>
+        <div style={{ display: "flex", gap: "10px" }}>
           <Button
-            color="primary btn-pill"
-            style={{ margin: "0px 10px" }}
-            onClick={() => setOpenPackDeleteModal(row)}
+            danger
+            onClick={() => {
+              setSelectedPackage(row);
+              setOpenPackDeleteModal(true);
+            }}
           >
-            delete package
+            Delete
           </Button>
           <Button
+            // type="primary"
             color="primary btn-pill"
-            style={{ margin: "0px 10px" }}
-            onClick={() => setOpenPackEditModal(row)}
+            onClick={() => {
+              setSelectedPackage(row);
+              setOpenPackEditModal(true);
+            }}
           >
-            Edit package
+            Edit
           </Button>
-        </>
+        </div>
       ),
     },
   ];
@@ -92,9 +175,6 @@ const SubscriptionList = () => {
     handleSelectLevels();
   }, []);
 
-  // const LevelOptions = Levels.map((level)=>{
-  //   return{label:level?.level_name,value:level?.level_id}
-  // })
   const { Option } = Select;
 
   const handleSelectChange = (selectedItems) => {
@@ -107,10 +187,29 @@ const SubscriptionList = () => {
     });
   };
 
+  const resetAddForm = () => {
+    setNewPackData({ price: "", num_of_levels: "", title: "" });
+    setAddPackLevels(false);
+  };
+
+  const resetEditForm = () => {
+    setSelectedPackage(null);
+    setOpenPackEditModal(false);
+  };
+
   const HandelAddPackage = async () => {
+    if (
+      !NewPackData.title ||
+      !NewPackData.price ||
+      !NewPackData.num_of_levels
+    ) {
+      toast.error("Please fill all fields");
+      return;
+    }
+
     const dataSend = {
+      title: NewPackData.title,
       num_of_levels: NewPackData.num_of_levels,
-      levels_ids: SelectedLevels,
       price: NewPackData.price,
     };
 
@@ -124,19 +223,24 @@ const SubscriptionList = () => {
       .then((res) => {
         console.log(res);
         if (res?.data?.status == "success") {
-          toast.success("Package add succesfully!");
-          setAddPackLevels(false);
+          toast.success("Package added successfully!");
+          resetAddForm();
           handleGetAllSubscription();
         } else {
-          toast.error("Faild to add Package");
+          toast.error("Failed to add Package");
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("An error occurred");
+      });
   };
 
   const handelDeletePackage = async () => {
+    if (!selectedPackage) return;
+
     const dataSend = {
-      package_id: OpenPackDeleteModal.package_id,
+      package_id: selectedPackage.package_id,
     };
 
     console.log(dataSend);
@@ -149,22 +253,37 @@ const SubscriptionList = () => {
       .then((res) => {
         console.log(res);
         if (res?.data?.status == "success") {
-          toast.success("Package deleted succesfully!");
+          toast.success("Package deleted successfully!");
           setOpenPackDeleteModal(false);
+          setSelectedPackage(null);
           handleGetAllSubscription();
         } else {
-          toast.error("Faild to delete Package");
+          toast.error("Failed to delete Package");
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("An error occurred");
+      });
   };
 
   const handelEditPackage = async () => {
+    if (!selectedPackage) return;
+
+    if (
+      !selectedPackage.title ||
+      !selectedPackage.price ||
+      !selectedPackage.num_of_levels
+    ) {
+      toast.error("Please fill all fields");
+      return;
+    }
+
     const dataSend = {
-      num_of_levels: NewPackData.num_of_levels,
-      levels_ids: SelectedLevels,
-      price: OpenPackEditModal.price,
-      package_id: OpenPackEditModal?.package_id,
+      title: selectedPackage.title,
+      num_of_levels: selectedPackage.num_of_levels,
+      price: selectedPackage.price,
+      package_id: selectedPackage.package_id,
     };
 
     console.log(dataSend);
@@ -177,14 +296,17 @@ const SubscriptionList = () => {
       .then((res) => {
         console.log(res);
         if (res?.data?.status == "success") {
-          toast.success("Package edited succesfully!");
-          setOpenPackEditModal(false);
+          toast.success("Package edited successfully!");
+          resetEditForm();
           handleGetAllSubscription();
         } else {
-          toast.error("Faild to edit Package");
+          toast.error("Failed to edit Package");
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("An error occurred");
+      });
   };
 
   return (
@@ -197,6 +319,7 @@ const SubscriptionList = () => {
               <div className="card-header">
                 <h5>List Packages</h5>
                 <Button
+                  // type="primary"
                   color="primary btn-pill"
                   style={{ margin: "10px 0" }}
                   onClick={() => setAddPackLevels(true)}
@@ -211,6 +334,7 @@ const SubscriptionList = () => {
                   }}
                   columns={columns}
                   dataSource={Subscriptions}
+                  rowKey="package_id"
                 />
               </div>
             </div>
@@ -218,20 +342,21 @@ const SubscriptionList = () => {
         </div>
       </div>
 
+      {/* Package Levels Modal */}
       <Modal
         title="Package levels"
-        open={OpenPackLevels}
-        onCancel={() => setOpenPackLevels(false)}
+        open={OpenPackLevels !== null}
+        onCancel={() => setOpenPackLevels(null)}
         footer={[
-          <Button key="cancel" onClick={() => setOpenPackLevels(false)}>
+          <Button key="cancel" onClick={() => setOpenPackLevels(null)}>
             Cancel
           </Button>,
         ]}
       >
         <>
           {OpenPackLevels && Array.isArray(OpenPackLevels) ? (
-            OpenPackLevels.map((level) => (
-              <p key={level.id}>
+            OpenPackLevels.map((level, index) => (
+              <p key={level.id || index}>
                 <strong>Level name:</strong> {level?.level_name}
               </p>
             ))
@@ -241,25 +366,43 @@ const SubscriptionList = () => {
         </>
       </Modal>
 
+      {/* Add Package Modal */}
       <Modal
         title="Add Package"
         open={AddPackLevels}
         footer={
           <>
-            <Button style={{ margin: "0px 10px " }} onClick={HandelAddPackage}>
+            <Button color="primary btn-pill" onClick={HandelAddPackage}>
               Add
             </Button>
-            <Button onClick={() => setAddPackLevels(false)}>Cancel</Button>
+            <Button onClick={resetAddForm}>Cancel</Button>
           </>
         }
-        onCancel={() => setAddPackLevels(false)}
+        onCancel={resetAddForm}
       >
         <>
+          <div className="form_field">
+            <label className="form_label">Package Title</label>
+            <input
+              type="text"
+              className="form_input"
+              placeholder="Enter package title"
+              value={NewPackData.title}
+              onChange={(e) => {
+                setNewPackData({
+                  ...NewPackData,
+                  title: e.target.value,
+                });
+              }}
+            />
+          </div>
           <div className="form_field">
             <label className="form_label">Package Price</label>
             <input
               type="number"
               className="form_input"
+              placeholder="Enter price"
+              value={NewPackData.price}
               onWheel={(e) => e.target.blur()}
               onChange={(e) => {
                 setNewPackData({
@@ -270,10 +413,12 @@ const SubscriptionList = () => {
             />
           </div>
           <div className="form_field">
-            <label className="form_label">Select Packages</label>
+            <label className="form_label">Number of Levels</label>
             <input
               type="number"
               className="form_input"
+              placeholder="Enter number of levels"
+              value={NewPackData.num_of_levels}
               onWheel={(e) => e.target.blur()}
               onChange={(e) => {
                 setNewPackData({
@@ -286,72 +431,103 @@ const SubscriptionList = () => {
         </>
       </Modal>
 
+      {/* Delete Package Modal */}
       <Modal
         title="Delete Package"
         open={OpenPackDeleteModal}
         footer={
           <>
-            <Button
-              style={{ margin: "0px 10px " }}
-              onClick={handelDeletePackage}
-            >
+            <Button danger onClick={handelDeletePackage}>
               Delete
             </Button>
-            <Button onClick={() => setOpenPackDeleteModal(false)}>
+            <Button
+              onClick={() => {
+                setOpenPackDeleteModal(false);
+                setSelectedPackage(null);
+              }}
+            >
               Cancel
             </Button>
           </>
         }
-        onCancel={() => setOpenPackDeleteModal(false)}
+        onCancel={() => {
+          setOpenPackDeleteModal(false);
+          setSelectedPackage(null);
+        }}
       >
-        <h3>Are you sure that you want to delete this package</h3>
+        <h3>Are you sure that you want to delete this package?</h3>
+        {selectedPackage && (
+          <p>
+            <strong>Title:</strong> {selectedPackage.title}
+          </p>
+        )}
       </Modal>
 
+      {/* Edit Package Modal */}
       <Modal
         title="Edit Package"
         open={OpenPackEditModal}
         footer={
           <>
-            <Button style={{ margin: "0px 10px " }} onClick={handelEditPackage}>
+            <Button
+              color="primary btn-pill"
+              // type="primary"
+              onClick={handelEditPackage}
+            >
               Edit
             </Button>
-            <Button onClick={() => setOpenPackEditModal(false)}>Cancel</Button>
+            <Button onClick={resetEditForm}>Cancel</Button>
           </>
         }
-        onCancel={() => setOpenPackEditModal(false)}
+        onCancel={resetEditForm}
       >
         <>
+          <div className="form_field">
+            <label className="form_label">Package Title</label>
+            <input
+              type="text"
+              className="form_input"
+              placeholder="Enter package title"
+              value={selectedPackage?.title || ""}
+              onChange={(e) => {
+                setSelectedPackage({
+                  ...selectedPackage,
+                  title: e.target.value,
+                });
+              }}
+            />
+          </div>
           <div className="form_field">
             <label className="form_label">Package Price</label>
             <input
               type="number"
               className="form_input"
+              placeholder="Enter price"
               onWheel={(e) => e.target.blur()}
-              value={OpenPackEditModal?.price || " "}
+              value={selectedPackage?.price || ""}
               onChange={(e) => {
-                setOpenPackEditModal({
-                  ...OpenPackEditModal,
+                setSelectedPackage({
+                  ...selectedPackage,
                   price: e.target.value,
                 });
               }}
             />
           </div>
           <div className="form_field">
-            <label className="form_label">Select Packages</label>
-            <Select
-              mode="multiple"
+            <label className="form_label">Number of Levels</label>
+            <input
+              type="number"
               className="form_input"
-              placeholder="Select packages"
-              onChange={handleSelectChange}
-              style={{ width: "100%" }}
-              // defaultValue={OpenPackEditModal?.levels}
-            >
-              {Levels.map((option) => (
-                <Option key={option.level_id} value={option.level_id}>
-                  {option.level_name}
-                </Option>
-              ))}
-            </Select>
+              placeholder="Enter number of levels"
+              onWheel={(e) => e.target.blur()}
+              value={selectedPackage?.num_of_levels || ""}
+              onChange={(e) => {
+                setSelectedPackage({
+                  ...selectedPackage,
+                  num_of_levels: e.target.value,
+                });
+              }}
+            />
           </div>
         </>
       </Modal>

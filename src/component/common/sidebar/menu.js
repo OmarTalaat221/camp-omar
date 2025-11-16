@@ -3,7 +3,7 @@ import React from "react";
 export const MENUITEMS = [
   {
     title: "Absence",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-date pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/absence`,
     active: false,
@@ -20,7 +20,7 @@ export const MENUITEMS = [
   },
   {
     title: "admins",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-users pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/admins`,
     active: false,
@@ -37,7 +37,7 @@ export const MENUITEMS = [
   },
   {
     title: "All data",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-graph pe-lg"></i>,
     type: "link",
     path: `${process.env.PUBLIC_URL}/`,
     active: true,
@@ -54,7 +54,7 @@ export const MENUITEMS = [
   },
   {
     title: "Branches",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-map-marker pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/branches`,
     active: false,
@@ -71,7 +71,7 @@ export const MENUITEMS = [
   },
   {
     title: "Complains & Exceptions",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-attention pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/notes`,
     active: false,
@@ -88,7 +88,7 @@ export const MENUITEMS = [
   },
   {
     title: "Feedback",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-comment pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/feedback`,
     active: false,
@@ -105,7 +105,7 @@ export const MENUITEMS = [
   },
   {
     title: "Finances",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-wallet pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/Expenses`,
     active: false,
@@ -137,7 +137,7 @@ export const MENUITEMS = [
   },
   {
     title: "Forms",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-note2 pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/forms_list`,
     active: false,
@@ -159,7 +159,7 @@ export const MENUITEMS = [
   },
   {
     title: "Groups",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-culture pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/groups`,
     active: false,
@@ -176,7 +176,7 @@ export const MENUITEMS = [
   },
   {
     title: "Levels",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-medal pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/levels/list`,
     active: false,
@@ -208,7 +208,7 @@ export const MENUITEMS = [
   },
   {
     title: "packages",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-box2 pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/SubscriptionList`,
     active: false,
@@ -225,7 +225,7 @@ export const MENUITEMS = [
   },
   {
     title: "posts",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-news-paper pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/posts`,
     active: false,
@@ -242,7 +242,7 @@ export const MENUITEMS = [
   },
   {
     title: "Students",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-study pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/students/list`,
     active: true,
@@ -259,7 +259,7 @@ export const MENUITEMS = [
   },
   {
     title: "Technical support",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-headphones pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/teckets`,
     active: true,
@@ -276,7 +276,7 @@ export const MENUITEMS = [
   },
   {
     title: "Tracks",
-    icon: <i className="pe-7s-portfolio pe-lg"></i>,
+    icon: <i className="pe-7s-map-2 pe-lg"></i>,
     type: "sub",
     path: `${process.env.PUBLIC_URL}/Tracks/list`,
     active: true,
