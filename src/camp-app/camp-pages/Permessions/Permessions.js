@@ -251,6 +251,8 @@ const Permessions = () => {
     { value: "employee", label: "employee" },
     { value: "instructor", label: "instructor" },
     { value: "superVisor", label: "Super Visor" },
+    { value: "Branch_manager", label: "Branch manager" },
+    { value: "General_manager", label: "General manager" },
   ]);
 
   function handelCreatOption(inputValue) {
