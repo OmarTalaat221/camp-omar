@@ -118,7 +118,7 @@ const GroupSessions = () => {
         ];
         return (
           <div className="d-flex gap-2 align-items-center">
-            {AdminData[0]?.type == "employee" ? (
+            {/* {AdminData[0]?.type == "employee" ? (
               <>
                 <Button
                   style={{ margin: "0px 10px" }}
@@ -144,7 +144,7 @@ const GroupSessions = () => {
                   confirm Absence
                 </Button>
               </>
-            ) : null}
+            ) : null} */}
 
             <Dropdown
               menu={{

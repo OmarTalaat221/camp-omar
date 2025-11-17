@@ -129,6 +129,12 @@ const StudentProfile = () => {
   const [StudentNotesModal, setStudentNotesModal] = useState(null);
   const [RemoveModal, setRemoveModal] = useState(false);
   const [rowData, setRowData] = useState(false);
+  const [textDirection, setTextDirection] = useState("ltr");
+
+  const detectLanguage = (text) => {
+    const arabicPattern = /[\u0600-\u06FF]/;
+    return arabicPattern.test(text) ? "rtl" : "ltr";
+  };
 
   const TypesOptions = [
     { label: "exception", value: "exception" },
@@ -757,15 +763,19 @@ const StudentProfile = () => {
             }}
           />
         </div>
+
         <div className="form_field">
           <label className="form_label">Note Text </label>
           <input
             type="text"
             className="form_input"
+            dir={textDirection}
             onChange={(e) => {
+              const value = e.target.value;
+              setTextDirection(detectLanguage(value));
               setNewNoteData({
                 ...NewNoteData,
-                Text: e.target.value,
+                Text: value,
               });
             }}
           />

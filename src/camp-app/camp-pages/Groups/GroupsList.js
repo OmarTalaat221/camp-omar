@@ -17,7 +17,7 @@ import * as XLSX from "xlsx";
 const GroupsList = () => {
   const navigate = useNavigate();
   const { round_id, branch_id } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [Groups, setGroups] = useState([]);
   const [GroupSelection, setGroupSelection] = useState([]);
@@ -32,6 +32,15 @@ const GroupsList = () => {
   const [assignGroupModal, setAssignGroupModal] = useState(false);
   const [UpdateStudentLevelModal, setUpdateStudentLevelModal] = useState(false);
   const [allLevels, setAllLevels] = useState([]);
+
+  const initialPage = parseInt(searchParams.get("page")) || 1;
+  const initialPageSize = parseInt(searchParams.get("limit")) || 10;
+  const roundId = searchParams.get("round_id");
+
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [loading, setLoading] = useState(false);
+
   const [assignData, setAssignData] = useState({
     level_id: "",
     student_max: null,
@@ -50,7 +59,6 @@ const GroupsList = () => {
 
   const AdminData = JSON.parse(localStorage.getItem("AdminData"));
   const adminId = AdminData[0]?.admin_id;
-  const roundId = searchParams.get("round_id");
 
   const [searchText, setSearchText] = useState("");
   const [searchedColumn, setSearchedColumn] = useState("");
@@ -397,6 +405,7 @@ const GroupsList = () => {
   }
 
   function handleGetGroups() {
+    setLoading(true);
     let dataSend, endpoint;
 
     if (roundId) {
@@ -420,7 +429,8 @@ const GroupsList = () => {
           setGroups(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => console.log(e))
+      .finally(() => setLoading(false));
   }
 
   function handleGetGroupsSelection() {
@@ -440,6 +450,7 @@ const GroupsList = () => {
       .catch((e) => console.log(e));
   }
 
+  // Fetch groups only once on mount or when roundId changes
   useEffect(() => {
     handleGetGroups();
     handleGetGroupsSelection();
@@ -785,7 +796,6 @@ const GroupsList = () => {
 
   // Function to export students to Excel
   const exportStudentsToExcel = (showToast = true) => {
-    // Get all students from AllStudents
     const studentsWithRemainingCount = AllStudents;
 
     if (studentsWithRemainingCount.length === 0) {
@@ -807,32 +817,27 @@ const GroupsList = () => {
       ...(student.address && { Address: student.address }),
     }));
 
-    // Create worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-    // Set column widths
     const columnWidths = [
-      { wch: 12 }, // Student ID
-      { wch: 25 }, // Name
-      { wch: 30 }, // Email
-      { wch: 15 }, // Phone
-      { wch: 20 }, // Remaining Sub Count
-      { wch: 15 }, // Updated
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 15 },
     ];
     worksheet["!cols"] = columnWidths;
 
-    // Create workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
 
-    // Generate filename with current date
     const currentDate = new Date().toISOString().split("T")[0];
     const selectedGroupName =
       GroupSelection.find((g) => g.group_id === parseInt(group?.split("_")[0]))
         ?.group_name || "Group";
     const filename = `Students_Remaining_Sub_${selectedGroupName}_${currentDate}.xlsx`;
 
-    // Download file
     XLSX.writeFile(workbook, filename);
 
     if (showToast) {
@@ -840,6 +845,23 @@ const GroupsList = () => {
         `Excel file downloaded with ${studentsWithRemainingCount.length} students!`
       );
     }
+  };
+
+  // Handle table pagination change (frontend only)
+  const handleTableChange = (pagination) => {
+    const newPage = pagination.current;
+    const newPageSize = pagination.pageSize;
+
+    setCurrentPage(newPage);
+    setPageSize(newPageSize);
+
+    const params = new URLSearchParams();
+    params.set("page", newPage.toString());
+    params.set("limit", newPageSize.toString());
+    if (roundId) {
+      params.set("round_id", roundId);
+    }
+    setSearchParams(params, { replace: true });
   };
 
   return (
@@ -877,12 +899,38 @@ const GroupsList = () => {
                 </div>
               </div>
               <div className="card-body">
+                <div
+                  style={{
+                    marginBottom: "16px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <span style={{ marginRight: "8px" }}>
+                      Total: {Groups.length} groups
+                    </span>
+                  </div>
+                </div>
                 <Table
                   scroll={{
                     x: "max-content",
                   }}
                   columns={columns}
                   dataSource={Groups}
+                  loading={loading}
+                  pagination={{
+                    current: currentPage,
+                    pageSize: pageSize,
+                    total: Groups.length,
+                    showSizeChanger: true,
+                    showTotal: (total, range) =>
+                      `${range[0]}-${range[1]} of ${total} items`,
+                    pageSizeOptions: ["10", "25", "50", "100"],
+                  }}
+                  onChange={handleTableChange}
+                  rowKey="group_id"
                 />
               </div>
             </div>
@@ -890,6 +938,7 @@ const GroupsList = () => {
         </div>
       </div>
 
+      {/* All modals remain the same... */}
       <Modal
         title="Add group"
         open={AddGroupModal}
@@ -1157,6 +1206,7 @@ const GroupsList = () => {
           ]}
           dataSource={selectGroups}
           rowKey="level_id"
+          pagination={false}
         />
       </Modal>
 
@@ -1319,6 +1369,7 @@ const GroupsList = () => {
             }}
             columns={Studcolumns}
             dataSource={AllStudents}
+            pagination={false}
           />
         </div>
       </Modal>

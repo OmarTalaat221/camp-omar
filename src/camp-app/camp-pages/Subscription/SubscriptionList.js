@@ -470,7 +470,6 @@ const SubscriptionList = () => {
         footer={
           <>
             <Button
-              color="primary btn-pill"
               // type="primary"
               onClick={handelEditPackage}
             >

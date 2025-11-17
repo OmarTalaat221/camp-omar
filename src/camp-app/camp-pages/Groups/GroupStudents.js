@@ -28,6 +28,13 @@ const GroupStudents = () => {
     admin_id: AdminData[0]?.admin_id,
   });
 
+  const [textDirection, setTextDirection] = useState("ltr");
+
+  const detectLanguage = (text) => {
+    const arabicPattern = /[\u0600-\u06FF]/;
+    return arabicPattern.test(text) ? "rtl" : "ltr";
+  };
+
   const columns = [
     {
       id: "student_id",
@@ -313,15 +320,19 @@ const GroupStudents = () => {
             style={{ width: "100%" }}
           />
         </div>
+
         <div className="form_field">
           <label className="form_label">Note Text </label>
           <input
             type="text"
             className="form_input"
+            dir={textDirection}
             onChange={(e) => {
+              const value = e.target.value;
+              setTextDirection(detectLanguage(value));
               setNewNoteData({
                 ...NewNoteData,
-                Text: e.target.value,
+                Text: value,
               });
             }}
           />

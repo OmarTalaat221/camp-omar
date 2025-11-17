@@ -4,12 +4,26 @@ import io from "socket.io-client";
 import { useLocation, useParams } from "react-router-dom";
 import "./style.css";
 import { Image } from "antd";
+// Import React Icons
+import {
+  MdMic,
+  MdAttachFile,
+  MdSend,
+  MdDelete,
+  MdPause,
+  MdPlayArrow,
+  MdStop,
+  MdClose,
+  MdUpload,
+} from "react-icons/md";
+import { BiMicrophone } from "react-icons/bi";
+import { IoMicOutline, IoSendSharp } from "react-icons/io5";
+import { FiMic, FiPaperclip } from "react-icons/fi";
 
 const backendUrl = "https://camp-coding.tech";
 
 const socket = io(backendUrl, {
   path: "/campForEnglishChat/socket.io",
-  // transports: ["websocket", "polling"],
   timeout: 180000,
   forceNew: true,
   reconnection: true,
@@ -32,26 +46,232 @@ const Chat = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
-  console.log("admin data", AdminData);
-  const adminId = AdminData[0]?.admin_id;
-  // Current admin ID
-  console.log(AdminData?.admin_id);
+  // Audio Recording States
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [audioUrl, setAudioUrl] = useState(null);
 
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingIntervalRef = useRef(null);
+  const audioPreviewRef = useRef(null);
+
+  const adminId = AdminData[0]?.admin_id;
   const messageEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const senderName = AdminData[0]?.name;
   const location = useLocation();
   const { additionalData } = location.state || {};
-  console.log(additionalData);
-  console.log(group_id, student_id, chatId);
 
   const user_image =
     additionalData?.image ||
     "https://res.cloudinary.com/dhgp9dzdt/image/upload/v1749036826/WhatsApp_Image_2025-06-04_at_14.31.19_e58a8cb4_b9cvno.jpg";
 
+  // Audio Recording Functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        setAudioBlob(audioBlob);
+        setAudioUrl(audioUrl);
+
+        // Stop all tracks
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Start timer
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      alert("Could not access microphone. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsPaused(false);
+
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (isPaused) {
+        mediaRecorderRef.current.resume();
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingTime((prev) => prev + 1);
+        }, 1000);
+      } else {
+        mediaRecorderRef.current.pause();
+        if (recordingIntervalRef.current) {
+          clearInterval(recordingIntervalRef.current);
+        }
+      }
+      setIsPaused(!isPaused);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream
+        .getTracks()
+        .forEach((track) => track.stop());
+    }
+
+    setIsRecording(false);
+    setIsPaused(false);
+    setRecordingTime(0);
+    setAudioBlob(null);
+    setAudioUrl(null);
+    audioChunksRef.current = [];
+
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const deleteAudioRecording = () => {
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setRecordingTime(0);
+  };
+
+  // Format time in MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  // Send audio message via API
+  const sendAudioMessage = async () => {
+    if (!audioBlob || !chatId) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const formData = new FormData();
+    // Create a file from the blob with proper extension
+    const audioFile = new File([audioBlob], `audio_${Date.now()}.webm`, {
+      type: "audio/webm",
+    });
+
+    formData.append("file", audioFile);
+    formData.append("chatId", chatId);
+    formData.append("senderId", adminId);
+    formData.append("senderRole", "admin");
+    formData.append("senderName", senderName);
+    formData.append("messageType", "audio");
+
+    try {
+      const response = await axios.post(
+        `${backendUrl}/campForEnglishChat/groupChat/sendMedia`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const progress = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              setUploadProgress(progress);
+            }
+          },
+        }
+      );
+
+      console.log("Audio uploaded successfully:", response.data);
+
+      const messageData = response.data;
+      const newMessage = {
+        _id: messageData.messageId,
+        text: messageData.messageText,
+        createdAt: new Date(messageData.createdAt),
+        user: {
+          _id: messageData.senderId,
+          name: messageData.senderName,
+          isAdmin: messageData.senderRole === "admin",
+        },
+        audio:
+          messageData.mediaUrl && messageData.messageType === "audio"
+            ? messageData.mediaUrl
+            : undefined,
+        messageType: messageData.messageType,
+      };
+
+      setMessages((prevMessages) => {
+        const messageExists = prevMessages.some(
+          (msg) => msg._id === newMessage._id
+        );
+        if (messageExists) {
+          return prevMessages;
+        }
+        return [...prevMessages, newMessage];
+      });
+
+      // Clear audio recording
+      deleteAudioRecording();
+      setUploadProgress(0);
+    } catch (error) {
+      console.error("Failed to upload audio:", error);
+      console.error("Error details:", error.response?.data);
+      alert("Failed to upload audio. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
   useEffect(() => {
     socket.on("newUnseenMessage", ({ group_id, chatId }) => {
-      console.log("New unseen message in group:", group_id, "chat:", chatId);
       setUnreadCount((prev) => prev + 1);
     });
 
@@ -89,17 +309,14 @@ const Chat = () => {
 
   useEffect(() => {
     socket.on("connect", () => {
-      console.log("Dashboard socket connected:", socket.id);
       setIsOnline(true);
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("Dashboard socket disconnected:", reason);
       setIsOnline(false);
     });
 
     socket.on("connect_error", (error) => {
-      console.error("Dashboard socket connection error:", error);
       setIsOnline(false);
     });
 
@@ -114,32 +331,15 @@ const Chat = () => {
       socket.off("joinedChat");
     };
   }, []);
+
   useEffect(() => {
     if (chatId) {
-      console.log("Dashboard joining chat room:", chatId);
       socket.emit("joinGroupChat", { chatId });
     }
 
     socket.on("newMessage", (newMessage) => {
-      console.log("Received newMessage on dashboard:", newMessage);
-      console.log("Dashboard message details:", {
-        messageId: newMessage.messageId,
-        chatId: newMessage.chatId,
-        expectedChatId: chatId,
-        messageType: newMessage.messageType,
-        mediaUrl: newMessage.mediaUrl,
-        thumbnailUrl: newMessage.thumbnailUrl,
-      });
-
-      // FIXED: Normalize chatId comparison by converting both to strings
       const normalizedNewMessageChatId = String(newMessage.chatId);
       const normalizedExpectedChatId = String(chatId);
-
-      console.log("Dashboard normalized comparison:", {
-        normalizedNewMessageChatId,
-        normalizedExpectedChatId,
-        isMatch: normalizedNewMessageChatId === normalizedExpectedChatId,
-      });
 
       if (normalizedNewMessageChatId === normalizedExpectedChatId) {
         const formattedMessage = {
@@ -151,7 +351,6 @@ const Chat = () => {
             name: newMessage.senderName,
             isAdmin: newMessage.senderRole === "admin",
           },
-          // Handle media messages
           image:
             newMessage.mediaUrl && newMessage.messageType === "image"
               ? newMessage.mediaUrl
@@ -160,47 +359,28 @@ const Chat = () => {
             newMessage.mediaUrl && newMessage.messageType === "video"
               ? newMessage.mediaUrl
               : undefined,
+          audio:
+            newMessage.mediaUrl && newMessage.messageType === "audio"
+              ? newMessage.mediaUrl
+              : undefined,
           videoThumbnail: newMessage.thumbnailUrl,
           messageType: newMessage.messageType,
         };
-
-        console.log("Formatted message for dashboard:", formattedMessage);
 
         setMessages((prevMessages) => {
           const messageExists = prevMessages.some(
             (msg) => msg._id === formattedMessage._id
           );
           if (messageExists) {
-            console.log(
-              "Message already exists in dashboard, skipping:",
-              formattedMessage._id
-            );
             return prevMessages;
           }
-          console.log(
-            "Adding new message to dashboard state:",
-            formattedMessage
-          );
           return [...prevMessages, formattedMessage];
         });
         makeMessagesSeen(chatId);
-      } else {
-        console.log(
-          "Dashboard message chatId mismatch:",
-          normalizedNewMessageChatId,
-          "vs",
-          normalizedExpectedChatId
-        );
       }
     });
 
     socket.on("messageDeleted", ({ messageId, chatId: deletedChatId }) => {
-      console.log("Received messageDeleted on dashboard:", {
-        messageId,
-        deletedChatId,
-      });
-
-      // FIXED: Normalize chatId comparison for message deletion too
       const normalizedDeletedChatId = String(deletedChatId);
       const normalizedExpectedChatId = String(chatId);
 
@@ -211,12 +391,11 @@ const Chat = () => {
       }
     });
 
-    // Add heartbeat to keep connection alive
     const heartbeatInterval = setInterval(() => {
       if (socket.connected) {
         socket.emit("ping");
       }
-    }, 30000); // Send ping every 30 seconds
+    }, 30000);
 
     return () => {
       socket.off("newMessage");
@@ -238,7 +417,6 @@ const Chat = () => {
     }
   }
 
-  // Handle typing indicator
   const handleTyping = (isTyping) => {
     setIsTyping(isTyping);
     if (chatId) {
@@ -251,7 +429,6 @@ const Chat = () => {
     }
   };
 
-  // Handle file selection
   const handleFileSelect = (event) => {
     const target = event.target;
     const file = target.files?.[0];
@@ -260,7 +437,6 @@ const Chat = () => {
     }
   };
 
-  // Handle media upload
   const handleMediaUpload = async () => {
     if (!selectedFile || !chatId) return;
 
@@ -274,7 +450,6 @@ const Chat = () => {
     formData.append("senderRole", "admin");
     formData.append("senderName", senderName);
 
-    // Determine message type based on file type
     const messageType = selectedFile.type.startsWith("image/")
       ? "image"
       : "video";
@@ -299,9 +474,6 @@ const Chat = () => {
         }
       );
 
-      console.log("Media uploaded successfully:", response.data);
-
-      // Immediately add the message to local state
       const messageData = response.data;
       const newMessage = {
         _id: messageData.messageId,
@@ -312,7 +484,6 @@ const Chat = () => {
           name: messageData.senderName,
           isAdmin: messageData.senderRole === "admin",
         },
-        // Handle media messages
         image:
           messageData.mediaUrl && messageData.messageType === "image"
             ? messageData.mediaUrl
@@ -325,7 +496,6 @@ const Chat = () => {
         messageType: messageData.messageType,
       };
 
-      // Add to messages state immediately (avoid duplicates)
       setMessages((prevMessages) => {
         const messageExists = prevMessages.some(
           (msg) => msg._id === newMessage._id
@@ -343,14 +513,12 @@ const Chat = () => {
       }
     } catch (error) {
       console.error("Failed to upload media:", error);
-      console.error("Error details:", error.response?.data);
       alert("Failed to upload media. Please try again.");
     } finally {
       setIsUploading(false);
     }
   };
 
-  // Handle message deletion
   const handleDeleteMessage = async (messageId) => {
     if (!window.confirm("Are you sure you want to delete this message?"))
       return;
@@ -373,6 +541,7 @@ const Chat = () => {
       alert("Failed to delete message. Please try again.");
     }
   };
+
   useEffect(() => {
     const fetchChatId = async () => {
       try {
@@ -393,12 +562,11 @@ const Chat = () => {
     fetchChatId();
   }, [group_id]);
 
-  // Fetch chat history
   useEffect(() => {
     const fetchChatHistory = async () => {
       try {
         const response = await axios.get(
-          `${backendUrl}/campForEnglishChat/groupChat/${group_id}/${student_id}` // Replace with dynamic student ID if needed
+          `${backendUrl}/campForEnglishChat/groupChat/${group_id}/${student_id}`
         );
         const formattedMessages = response.data.map((msg) => ({
           _id: msg.messageId,
@@ -417,6 +585,10 @@ const Chat = () => {
             msg.mediaUrl && msg.messageType === "video"
               ? msg.mediaUrl
               : undefined,
+          audio:
+            msg.mediaUrl && msg.messageType === "audio"
+              ? msg.mediaUrl
+              : undefined,
           videoThumbnail: msg.thumbnailUrl,
           messageType: msg.messageType,
         }));
@@ -429,14 +601,12 @@ const Chat = () => {
     fetchChatHistory();
   }, []);
 
-  // Scroll to the latest message
   useEffect(() => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Send a new message
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
@@ -453,7 +623,6 @@ const Chat = () => {
         }
       );
 
-      // Immediately add the message to local state as fallback
       const messageData = response.data;
       const newMessageObj = {
         _id: messageData.messageId,
@@ -493,7 +662,6 @@ const Chat = () => {
                 style={{
                   ...styles.statusDot,
                   backgroundColor: isOnline ? "#0cf742" : "#dc3545",
-                  animation: isOnline ? "bounce 0.6s infinite" : "",
                 }}
               ></div>
               <span style={styles.statusText}>
@@ -533,22 +701,19 @@ const Chat = () => {
                       style={styles.deleteButton}
                       title="Delete message"
                     >
-                      ×
+                      <MdClose size={18} />
                     </button>
                   )}
                 </div>
 
-                {/* Text Message */}
                 {msg.text && <div style={styles.messageText}>{msg.text}</div>}
 
-                {/* Media Message */}
                 {msg.image && (
                   <div style={styles.mediaContainer}>
                     <Image
                       src={msg.image}
                       alt="Image"
                       style={styles.mediaImage}
-                      // onClick={() => window.open(msg.image, "_blank")}
                     />
                   </div>
                 )}
@@ -565,11 +730,23 @@ const Chat = () => {
                     </video>
                   </div>
                 )}
+
+                {/* {msg.audio && (
+                  <div style={styles.mediaContainer}>
+                    <div style={styles.audioMessageContainer}>
+                      <MdMic size={20} color="#0c5460" />
+                      <audio controls style={styles.audioMessage}>
+                        <source src={msg.audio} type="audio/webm" />
+                        <source src={msg.audio} type="audio/mpeg" />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  </div>
+                )} */}
               </div>
             </div>
           ))}
 
-          {/* Typing Indicator */}
           {typingUsers.length > 0 && (
             <div style={styles.typingIndicator}>
               <span style={styles.typingText}>
@@ -581,6 +758,105 @@ const Chat = () => {
 
           <div ref={messageEndRef} />
         </div>
+
+        {/* Audio Recording Section */}
+        {isRecording && (
+          <div style={styles.recordingSection}>
+            <div style={styles.recordingInfo}>
+              <div style={styles.recordingIndicator}>
+                <div style={styles.recordingDot}></div>
+                <span style={styles.recordingText}>
+                  {isPaused ? "Paused" : "Recording..."}
+                </span>
+              </div>
+              <span style={styles.recordingTime}>
+                {formatTime(recordingTime)}
+              </span>
+            </div>
+            <div style={styles.recordingActions}>
+              <button
+                onClick={pauseRecording}
+                style={styles.pauseButton}
+                title={isPaused ? "Resume" : "Pause"}
+              >
+                {isPaused ? <MdPlayArrow size={18} /> : <MdPause size={18} />}
+                <span style={{ marginLeft: "5px" }}>
+                  {isPaused ? "Resume" : "Pause"}
+                </span>
+              </button>
+              <button
+                onClick={stopRecording}
+                style={styles.stopButton}
+                title="Stop Recording"
+              >
+                <MdStop size={18} />
+                <span style={{ marginLeft: "5px" }}>Stop</span>
+              </button>
+              <button
+                onClick={cancelRecording}
+                style={styles.cancelRecordButton}
+                title="Cancel Recording"
+              >
+                <MdClose size={18} />
+                <span style={{ marginLeft: "5px" }}>Cancel</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Audio Preview Section
+        {audioUrl && !isRecording && (
+          <div style={styles.audioPreviewSection}>
+            <div style={styles.audioPreviewInfo}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "5px" }}
+              >
+                <MdMic size={20} color="#0c5460" />
+                <span style={styles.audioLabel}>Audio recorded</span>
+              </div>
+              <span style={styles.audioDuration}>
+                {formatTime(recordingTime)}
+              </span>
+            </div>
+            <audio
+              ref={audioPreviewRef}
+              controls
+              src={audioUrl}
+              style={styles.audioPlayer}
+            />
+            {isUploading && (
+              <div style={styles.progressBar}>
+                <div
+                  style={{
+                    ...styles.progressFill,
+                    width: `${uploadProgress}%`,
+                  }}
+                ></div>
+                <span style={styles.progressText}>{uploadProgress}%</span>
+              </div>
+            )}
+            <div style={styles.audioActions}>
+              <button
+                onClick={sendAudioMessage}
+                style={styles.sendAudioButton}
+                disabled={isUploading}
+              >
+                <MdUpload size={18} />
+                <span style={{ marginLeft: "5px" }}>
+                  {isUploading ? "Uploading..." : "Send Audio"}
+                </span>
+              </button>
+              <button
+                onClick={deleteAudioRecording}
+                style={styles.deleteAudioButton}
+                disabled={isUploading}
+              >
+                <MdDelete size={18} />
+                <span style={{ marginLeft: "5px" }}>Delete</span>
+              </button>
+            </div>
+          </div>
+        )} */}
 
         {/* File Upload Section */}
         {selectedFile && (
@@ -638,7 +914,21 @@ const Chat = () => {
             }}
             placeholder="Type a message..."
             style={styles.input}
+            disabled={isRecording || audioUrl !== null}
           />
+
+          {/* Microphone Button */}
+          {/* <button
+            onClick={isRecording ? stopRecording : startRecording}
+            style={{
+              ...styles.micButton,
+              backgroundColor: isRecording ? "#dc3545" : "#28a745",
+            }}
+            title={isRecording ? "Stop Recording" : "Start Recording"}
+            disabled={audioUrl !== null}
+          >
+            <MdMic size={20} />
+          </button> */}
 
           {/* File Upload Button */}
           <input
@@ -652,15 +942,17 @@ const Chat = () => {
             onClick={() => fileInputRef.current?.click()}
             style={styles.attachButton}
             title="Attach file"
+            disabled={isRecording || audioUrl !== null}
           >
-            📎
+            <MdAttachFile size={20} />
           </button>
 
           <button
             onClick={sendMessage}
             style={styles.sendButton}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || isRecording || audioUrl !== null}
           >
+            <MdSend size={18} style={{ marginRight: "5px" }} />
             Send
           </button>
         </div>
@@ -770,9 +1062,10 @@ const styles = {
     border: "none",
     color: "#dc3545",
     cursor: "pointer",
-    fontSize: "16px",
     padding: "0",
     marginLeft: "auto",
+    display: "flex",
+    alignItems: "center",
   },
   mediaContainer: {
     marginTop: "8px",
@@ -788,6 +1081,18 @@ const styles = {
     maxHeight: "200px",
     borderRadius: "8px",
   },
+  audioMessageContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "8px",
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderRadius: "8px",
+  },
+  audioMessage: {
+    width: "250px",
+    height: "40px",
+  },
   typingIndicator: {
     padding: "8px 15px",
     backgroundColor: "#e9ecef",
@@ -799,6 +1104,141 @@ const styles = {
   },
   typingText: {
     fontSize: "12px",
+  },
+  // Recording Styles
+  recordingSection: {
+    padding: "15px",
+    backgroundColor: "#fff3cd",
+    borderRadius: "8px",
+    marginBottom: "10px",
+    border: "2px solid #ffc107",
+  },
+  recordingInfo: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "10px",
+  },
+  recordingIndicator: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  recordingDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "50%",
+    backgroundColor: "#dc3545",
+    animation: "blink 1s infinite",
+  },
+  recordingText: {
+    fontSize: "14px",
+    fontWeight: "bold",
+    color: "#856404",
+  },
+  recordingTime: {
+    fontSize: "16px",
+    fontWeight: "bold",
+    color: "#856404",
+    fontFamily: "monospace",
+  },
+  recordingActions: {
+    display: "flex",
+    gap: "8px",
+    justifyContent: "center",
+  },
+  pauseButton: {
+    padding: "8px 16px",
+    backgroundColor: "#ffc107",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
+  },
+  stopButton: {
+    padding: "8px 16px",
+    backgroundColor: "#dc3545",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
+  },
+  cancelRecordButton: {
+    padding: "8px 16px",
+    backgroundColor: "#6c757d",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
+  },
+  // Audio Preview Styles
+  audioPreviewSection: {
+    padding: "15px",
+    backgroundColor: "#d1ecf1",
+    borderRadius: "8px",
+    marginBottom: "10px",
+    border: "2px solid #0c5460",
+  },
+  audioPreviewInfo: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "10px",
+  },
+  audioLabel: {
+    fontSize: "14px",
+    fontWeight: "bold",
+    color: "#0c5460",
+  },
+  audioDuration: {
+    fontSize: "14px",
+    color: "#0c5460",
+    fontFamily: "monospace",
+  },
+  audioPlayer: {
+    width: "100%",
+    marginBottom: "10px",
+  },
+  audioActions: {
+    display: "flex",
+    gap: "8px",
+    justifyContent: "center",
+  },
+  sendAudioButton: {
+    padding: "8px 16px",
+    backgroundColor: "#28a745",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
+  },
+  deleteAudioButton: {
+    padding: "8px 16px",
+    backgroundColor: "#dc3545",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
   },
   fileUploadSection: {
     padding: "10px",
@@ -881,6 +1321,19 @@ const styles = {
   fileInput: {
     display: "none",
   },
+  micButton: {
+    padding: "12px",
+    color: "white",
+    border: "none",
+    borderRadius: "50%",
+    cursor: "pointer",
+    width: "40px",
+    height: "40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.3s ease",
+  },
   attachButton: {
     padding: "12px",
     backgroundColor: "#6c757d",
@@ -888,7 +1341,6 @@ const styles = {
     border: "none",
     borderRadius: "50%",
     cursor: "pointer",
-    fontSize: "16px",
     width: "40px",
     height: "40px",
     display: "flex",
@@ -904,6 +1356,8 @@ const styles = {
     cursor: "pointer",
     fontSize: "14px",
     fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
   },
 };
 
