@@ -243,7 +243,10 @@ const Permessions = () => {
   }
 
   const groupsOptions = Groups.map((group) => {
-    return { value: group?.group_id, label: group?.group_name };
+    return {
+      value: group?.group_id,
+      label: `${group?.group_name} - ${group?.branch_name}`,
+    };
   });
 
   const [typeOptions, setTypeOptions] = useState([
@@ -786,9 +789,13 @@ const Permessions = () => {
         <div className="form_field">
           <label className="form_label">Select Group</label>
           <Select
+            showSearch
             type="text"
             style={{ width: "100%" }}
             value={NewGroupId}
+            filterOption={(input, option) =>
+              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+            }
             options={groupsOptions}
             onChange={(e) => {
               setNewGroupId(e);
