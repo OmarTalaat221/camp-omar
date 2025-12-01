@@ -158,7 +158,6 @@ const GroupSessionStudents = () => {
       .catch((e) => console.log(e));
   }
 
-  // Export to Excel function with yellow highlighting for "Absent" cells
   const exportToExcel = async () => {
     if (SessionStudents.length === 0) {
       toast.warning("No students found to export!");
@@ -166,7 +165,6 @@ const GroupSessionStudents = () => {
     }
 
     try {
-      // Create a new workbook
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Session Attendance");
 
@@ -203,19 +201,17 @@ const GroupSessionStudents = () => {
           phone: student.phone || "N/A",
         });
 
-        // Apply yellow background to "Absent" cell if taken_before is true
         if (student.taken_before) {
           row.getCell(4).fill = {
             type: "pattern",
             pattern: "solid",
-            fgColor: { argb: "FFFFFF00" }, // Yellow background
+            fgColor: { argb: "FFFFFF00" },
           };
           row.getCell(4).font = {
-            color: { argb: "FF000000" }, // Black text
+            color: { argb: "FF000000" },
           };
         }
 
-        // Center align all cells
         row.alignment = { vertical: "middle", horizontal: "center" };
       });
 
@@ -267,41 +263,35 @@ const GroupSessionStudents = () => {
 
                   <div style={{ display: "flex", gap: "10px" }}>
                     {/* Export to Excel Button */}
-                    {(AdminData[0]?.type === "employee" ||
-                      AdminData[0]?.type === "instractor") &&
-                      IsConfirmed && (
-                        <Button
-                          color="success"
-                          onClick={exportToExcel}
-                          disabled={SessionStudents.length === 0}
-                          style={{
-                            backgroundColor: "#28a745",
-                            borderColor: "#28a745",
-                            color: "white",
-                          }}
-                        >
-                          Export to Excel
-                        </Button>
-                      )}
-
-                    {/* Confirm Absence Button */}
-                    {(AdminData[0]?.type === "employee" ||
-                      AdminData[0]?.type === "instractor") && (
+                    {IsConfirmed && (
                       <Button
-                        color="primary btn-pill"
-                        onClick={() => setConfirmAbsenceModal(true)}
-                        disabled={IsConfirmed}
+                        color="success"
+                        onClick={exportToExcel}
+                        disabled={SessionStudents.length === 0}
                         style={{
-                          backgroundColor: IsConfirmed ? "#52c41a" : "#1890ff",
-                          borderColor: IsConfirmed ? "#52c41a" : "#1890ff",
+                          backgroundColor: "#28a745",
+                          borderColor: "#28a745",
                           color: "white",
                         }}
                       >
-                        {IsConfirmed
-                          ? "✓ Absence Confirmed"
-                          : "Confirm Absence"}
+                        Export to Excel
                       </Button>
                     )}
+
+                    {/* Confirm Absence Button */}
+
+                    <Button
+                      color="primary btn-pill"
+                      onClick={() => setConfirmAbsenceModal(true)}
+                      disabled={IsConfirmed}
+                      style={{
+                        backgroundColor: IsConfirmed ? "#52c41a" : "#1890ff",
+                        borderColor: IsConfirmed ? "#52c41a" : "#1890ff",
+                        color: "white",
+                      }}
+                    >
+                      {IsConfirmed ? "✓ Absence Confirmed" : "Confirm Absence"}
+                    </Button>
                   </div>
                 </div>
               </div>

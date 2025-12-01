@@ -13,16 +13,25 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
 import { Option } from "antd/es/mentions";
-import { use } from "react";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { BsSearch } from "react-icons/bs";
-import { toNumber } from "lodash";
 import "./style.css";
 
 export default function ListStudents() {
   const AdminData = JSON.parse(localStorage.getItem("AdminData"));
+  const navigate = useNavigate();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const currentPage = parseInt(searchParams.get("page")) || 1;
+  const currentLimit = parseInt(searchParams.get("limit")) || 20;
+  const currentBranchId = searchParams.get("branch_id") || "";
+  const currentPhone = searchParams.get("phone") || "";
+  const currentName = searchParams.get("name") || "";
+  const currentEmail = searchParams.get("email") || "";
+
   const [students, setStudents] = useState([]);
   const [Levels, setLevels] = useState([]);
   const [EditModal, setEditModal] = useState(false);
@@ -34,7 +43,6 @@ export default function ListStudents() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [OpenAddModal, setOpenAddModal] = useState(false);
-  const navigate = useNavigate();
   const [paymentMode, setPaymentMode] = useState("assign_now");
   const [form] = Form.useForm();
   const [packagesStudent, setPackagesStudent] = useState([]);
@@ -43,10 +51,12 @@ export default function ListStudents() {
   const [OpenGeminiData, setOpenGeminiData] = useState(null);
   const [AddStudentSub, setAddStudentSub] = useState(null);
 
+  const [groupsLoading, setGroupsLoading] = useState(false);
+
   const [NewSubscriptionData, setNewSubscriptionData] = useState({
-    type: "level", // ('package', 'level')
-    package_id: null, // put package_id if type is package else send it 0
-    level_id: null, // // put level_id if type is level else send it 0
+    type: "level",
+    package_id: null,
+    level_id: null,
     group_id: null,
     student_id: null,
     payed: null,
@@ -54,37 +64,65 @@ export default function ListStudents() {
 
   const [filteredData, setFilteredData] = useState(students);
 
-  const handleTableChange = (pagination, filters, sorter, extra) => {
-    // Capture the current filtered data
-    if (extra && extra.currentDataSource) {
-      setFilteredData(extra.currentDataSource);
-      console.log("Filtered Data:", extra.currentDataSource); // Log filtered data
-    }
-  };
-
-  const [searchText, setSearchText] = useState("");
-  const [searchedColumn, setSearchedColumn] = useState("");
   const [openExceptionModal, setExceptionModal] = useState(false);
   const [exceptionsData, setExceptionsData] = useState([]);
   const [exceptionLoading, setExceptionLoading] = useState(false);
   const [rowData, setRowData] = useState(null);
 
-  const NewStudent = students.filter(
-    (student) =>
-      new Date(student?.date_added).toDateString() === new Date().toDateString()
-  );
+  // ✅ Pagination state from API
+  const [paginationData, setPaginationData] = useState({
+    current_page: 1,
+    limit: 20,
+    total_students: 0,
+    total_pages: 1,
+  });
 
-  console.log(NewStudent);
+  const updateSearchParams = (newParams) => {
+    const params = new URLSearchParams(searchParams);
 
-  const handleSearch = (selectedKeys, confirm, dataIndex) => {
-    confirm();
-    setSearchText(selectedKeys[0]);
-    setSearchedColumn(dataIndex);
+    Object.keys(newParams).forEach((key) => {
+      if (
+        newParams[key] !== "" &&
+        newParams[key] !== null &&
+        newParams[key] !== undefined
+      ) {
+        params.set(key, newParams[key]);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    setSearchParams(params);
   };
 
-  const handleReset = (clearFilters) => {
-    clearFilters();
-    setSearchText("");
+  // ✅ Handle page change
+  const handlePageChange = (page, pageSize) => {
+    updateSearchParams({
+      page: page,
+      limit: pageSize,
+    });
+  };
+
+  const handleTableChange = (pagination, filters, sorter, extra) => {
+    if (extra && extra.currentDataSource) {
+      setFilteredData(extra.currentDataSource);
+    }
+  };
+
+  // ✅ UPDATED: Handle column search - updates URL params
+  const handleSearch = (value, dataIndex) => {
+    updateSearchParams({
+      [dataIndex]: value,
+      page: 1, // Reset to page 1 when searching
+    });
+  };
+
+  // ✅ UPDATED: Handle reset - removes param from URL
+  const handleReset = (dataIndex) => {
+    const params = new URLSearchParams(searchParams);
+    params.delete(dataIndex);
+    params.set("page", "1"); // Reset to page 1
+    setSearchParams(params);
   };
 
   useEffect(() => {
@@ -93,83 +131,128 @@ export default function ListStudents() {
       package_id: null,
       level_id: null,
       group_id: null,
-
       payed: null,
     });
   }, [paymentMode]);
 
-  const getColumnSearchProps = (dataIndex) => ({
-    filterDropdown: ({
-      setSelectedKeys,
-      selectedKeys,
-      confirm,
-      clearFilters,
-    }) => (
-      <div style={{ padding: 8 }}>
-        <Input
-          placeholder={`Search ${dataIndex}`}
-          value={selectedKeys[0]}
-          onChange={(e) =>
-            setSelectedKeys(e.target.value ? [e.target.value] : [])
-          }
-          onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
-          style={{ marginBottom: 8, display: "block" }}
-        />
-        <div className="flex gap-2">
-          <Button
-            type="primary"
-            onClick={() => handleSearch(selectedKeys, confirm, dataIndex)}
-            icon={<BsSearch />}
-            size="small"
-            style={{ width: 90 }}
-          >
-            Search
-          </Button>
-          <Button
-            onClick={() => handleReset(clearFilters)}
-            size="small"
-            style={{ width: 90, marginTop: 8 }}
-          >
-            Reset
-          </Button>
-        </div>
-      </div>
-    ),
-    filterIcon: (filtered) => (
-      <BsSearch style={{ color: filtered ? "#1890ff" : undefined }} />
-    ),
-    onFilter: (value, record) =>
-      record[dataIndex]
-        ? record[dataIndex]
-            .toString()
-            .toLowerCase()
-            .includes(value.toLowerCase())
-        : "",
-    render: (text) =>
-      searchedColumn === dataIndex ? (
-        <span style={{ backgroundColor: "#ffc069", padding: 0 }}>{text}</span>
-      ) : (
-        text
-      ),
-  });
+  const handleLevelChange = (value) => {
+    setNewSubscriptionData((prev) => ({
+      ...prev,
+      level_id: value,
+      group_id: null,
+    }));
 
+    if (value) {
+      fetchGroupsByLevel(value);
+    } else {
+      setGroups([]);
+    }
+  };
+
+  const fetchGroupsByLevel = async (levelId) => {
+    setGroupsLoading(true);
+    try {
+      const res = await axios.post(
+        BASE_URL + "/admin/groups/select_groups_by_admin.php",
+        {
+          admin_id: AdminData[0]?.admin_id,
+          level_id: levelId,
+        }
+      );
+
+      if (res?.data?.status === "success") {
+        const filteredGroups = res?.data?.message?.filter(
+          (gr) =>
+            gr?.group_levels?.level_id != null &&
+            String(gr.group_levels.level_id) === String(levelId)
+        );
+        setGroups(filteredGroups || []);
+      } else {
+        setGroups([]);
+      }
+    } catch (e) {
+      console.log(e);
+      setGroups([]);
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  const getColumnSearchProps = (dataIndex) => {
+    const currentValue = searchParams.get(dataIndex) || "";
+
+    return {
+      filterDropdown: ({
+        setSelectedKeys,
+        selectedKeys,
+        confirm,
+        clearFilters,
+      }) => {
+        return (
+          <div style={{ padding: 8 }}>
+            <Input
+              placeholder={`Search ${dataIndex}`}
+              // ✅ استخدم defaultValue بدلاً من value
+              defaultValue={currentValue}
+              onChange={(e) => {
+                setSelectedKeys(e.target.value ? [e.target.value] : []);
+              }}
+              onPressEnter={() => {
+                handleSearch(selectedKeys[0] || "", dataIndex);
+              }}
+              style={{ marginBottom: 8, display: "block" }}
+            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <Button
+                type="primary"
+                onClick={() => handleSearch(selectedKeys[0] || "", dataIndex)}
+                icon={<BsSearch />}
+                size="small"
+                style={{ width: 90 }}
+              >
+                Search
+              </Button>
+              <Button
+                onClick={() => {
+                  setSelectedKeys([]);
+                  handleReset(dataIndex);
+                }}
+                size="small"
+                style={{ width: 90 }}
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+        );
+      },
+      filterIcon: (filtered) => (
+        <BsSearch
+          style={{
+            color: currentValue ? "#1890ff" : undefined,
+          }}
+        />
+      ),
+      filtered: !!currentValue,
+    };
+  };
   const columns = [
     {
       id: "student_id",
       dataIndex: "student_id",
-      title: "student_id",
-      ...getColumnSearchProps("student_id"),
+      title: "Student ID",
+      // ...getColumnSearchProps("student_id"),
     },
     {
       id: "name",
       dataIndex: "name",
-      title: "name",
+      title: "Name",
       ...getColumnSearchProps("name"),
     },
     {
       id: "email",
       dataIndex: "email",
-      title: "email",
+      title: "Email",
       ...getColumnSearchProps("email"),
       render: (text, row) => (
         <a href={`mailto:${row?.email}`} target="_blank" rel="noreferrer">
@@ -180,47 +263,42 @@ export default function ListStudents() {
     {
       id: "phone",
       dataIndex: "phone",
-      title: "phone",
+      title: "Phone",
       ...getColumnSearchProps("phone"),
     },
     {
       id: "parent_phone",
       dataIndex: "parent_phone",
       title: "Parent Phone",
-      ...getColumnSearchProps("parent_phone"),
+      // ...getColumnSearchProps("parent_phone"),
     },
-
-    ...(AdminData[0]?.type === "super_admin"
-      ? [
-          {
-            id: "password",
-            dataIndex: "password",
-            title: "password",
-            ...getColumnSearchProps("password"),
-          },
-        ]
-      : []),
+    {
+      id: "branch_name",
+      dataIndex: "branch_name",
+      title: "Branch",
+    },
+    {
+      id: "password",
+      dataIndex: "password",
+      title: "Password",
+    },
     {
       id: "remaining_sub_count",
       dataIndex: "remaining_sub_count",
-      title: "remaining sub count",
-      ...getColumnSearchProps("remaining_sub_count"),
+      title: "Remaining Sub Count",
     },
     {
       id: "student_score_in_placement_test",
       dataIndex: "student_score_in_placement_test",
-      title: "placement test score",
-      ...getColumnSearchProps("student_score_in_placement_test"),
+      title: "Placement Test Score",
     },
     {
       id: "action",
       dataIndex: "x",
-      title: "action",
+      title: "Action",
       render: (text, row) => (
-        <>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
           <Button
-            color="primary btn-pill"
-            style={{ margin: "0px 10px" }}
             onClick={() => {
               setEditModal(true);
               setEditStudentData(row);
@@ -229,28 +307,22 @@ export default function ListStudents() {
             Edit
           </Button>
           <Button
-            color="primary btn-pill"
-            style={{ margin: "0px 10px" }}
             onClick={() => {
               setOpenUpdateGroup(true);
               setRowData(row);
             }}
           >
-            Update student group
+            Update Group
           </Button>
           <Button
-            color="primary btn-pill"
             onClick={() =>
               navigate(`/students/list/${row?.student_id}/profile`)
             }
           >
-            profile
+            Profile
           </Button>
           <Button
-            color="primary btn-pill"
-            style={{ margin: "0px 10px" }}
             onClick={() => {
-              // Set payment mode based on student subscription status
               if (
                 row?.remaining_sub_count == 0 ||
                 row?.remaining_sub_count == "not subscription yet"
@@ -266,12 +338,12 @@ export default function ListStudents() {
                 student_id: row.student_id,
               });
               setRowData(row);
+              handelGetGroups();
             }}
           >
-            Add Student subscription
+            Add Subscription
           </Button>
           <Button
-            color="primary btn-pill"
             onClick={() =>
               navigate(
                 `${process.env.PUBLIC_URL}/students/${row?.student_id}/level/certificates`,
@@ -279,30 +351,26 @@ export default function ListStudents() {
               )
             }
           >
-            certificates
+            Certificates
           </Button>
           <Button
-            style={{ margin: "0px 10px" }}
-            color="primary btn-pill"
             onClick={() => {
               row?.student_gemini_data
                 ? setOpenGeminiData(row?.student_gemini_data)
                 : toast.error("This student has not taken the exam yet.");
             }}
           >
-            gemini data
+            Gemini Data
           </Button>
           <Button
-            style={{ margin: "0px 10px" }}
-            color="primary btn-pill"
             onClick={() => {
               setExceptionModal(true);
               handleGetStudentException(row?.student_id);
             }}
           >
-            Exceptions & Complains
+            Exceptions
           </Button>
-        </>
+        </div>
       ),
     },
   ];
@@ -364,7 +432,7 @@ export default function ListStudents() {
     {
       dataIndex: "exceptions_complains_id",
       key: "exceptions_complains_id",
-      title: "Exceptions Complains Id",
+      title: "ID",
     },
     {
       dataIndex: "Type",
@@ -388,32 +456,57 @@ export default function ListStudents() {
     },
   ];
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalStudents, setTotalStudents] = useState(0);
-  const pageSize = 10;
-
   function handleGetAllStudents() {
-    const dataSend = {
-      admin_type: AdminData[0]?.type,
-      admin_id: AdminData[0]?.admin_id,
-    };
     setLoading(true);
+
+    const params = new URLSearchParams({
+      admin_type: AdminData[0]?.type,
+      page: currentPage.toString(),
+      limit: currentLimit.toString(),
+    });
+
+    searchParams.forEach((value, key) => {
+      if (key !== "page" && key !== "limit" && value) {
+        params.set(key, value);
+      }
+    });
     axios
-      .post(
-        BASE_URL + "/admin/home/select_student_v2.php",
-        JSON.stringify(dataSend)
+      .get(
+        `${BASE_URL}/admin/home/select_students_with_pagination.php?${params.toString()}`
       )
       .then((res) => {
         if (res?.data?.status == "success") {
-          setStudents(res?.data?.message);
+          setStudents(res?.data?.message || []);
+          setPaginationData(
+            res?.data?.pagination || {
+              current_page: 1,
+              limit: 20,
+              total_students: 0,
+              total_pages: 1,
+            }
+          );
+        } else {
+          setStudents([]);
+          setPaginationData({
+            current_page: 1,
+            limit: 20,
+            total_students: 0,
+            total_pages: 1,
+          });
         }
+      })
+      .catch((e) => {
+        console.log(e);
+        setStudents([]);
+        toast.error("Error fetching students");
       })
       .finally(() => setLoading(false));
   }
 
+  // ✅ Re-fetch when URL params change
   useEffect(() => {
     handleGetAllStudents();
-  }, []);
+  }, [searchParams]);
 
   const handelEditStudent = async () => {
     setSubmitting(true);
@@ -428,7 +521,6 @@ export default function ListStudents() {
     axios
       .post(BASE_URL + "/admin/home/update_student_data.php", dataSend)
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res?.data?.message);
           setEditModal(false);
@@ -442,7 +534,6 @@ export default function ListStudents() {
   };
 
   const handelAddStudentSub = async () => {
-    // if(NewSubscriptionData?.payed )
     setSubmitting(true);
     let dataSend;
 
@@ -487,12 +578,10 @@ export default function ListStudents() {
         dataSend
       )
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res?.data?.message);
           setAddStudentSub(null);
           handleGetAllStudents();
-          // Reset state
           setNewSubscriptionData({
             type: "level",
             package_id: null,
@@ -513,7 +602,6 @@ export default function ListStudents() {
     axios
       .get(BASE_URL + "/admin/content/select_levels.php")
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           setLevels(res?.data?.message);
         }
@@ -522,6 +610,7 @@ export default function ListStudents() {
   }
 
   function handelGetGroups() {
+    setGroupsLoading(true);
     axios
       .post(BASE_URL + "/admin/groups/select_groups_by_admin.php", {
         admin_id: AdminData[0]?.admin_id,
@@ -531,7 +620,8 @@ export default function ListStudents() {
           setGroups(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => console.log(e))
+      .finally(() => setGroupsLoading(false));
   }
 
   useEffect(() => {
@@ -568,7 +658,6 @@ export default function ListStudents() {
     axios
       .post(BASE_URL + "/admin/home/student_signup.php", JSON.stringify(values))
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res?.data?.message);
           form.resetFields();
@@ -590,7 +679,6 @@ export default function ListStudents() {
     axios
       .get(BASE_URL + "/admin/branches/select_branch.php")
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           setBranches(res?.data?.message);
         }
@@ -609,15 +697,8 @@ export default function ListStudents() {
   const groupOptions = Groups?.filter(
     (gr) =>
       gr?.group_levels?.level_id != null &&
-      String(gr.group_levels.level_id) == String(NewSubscriptionData?.level_id)
+      String(gr.group_levels.level_id) === String(NewSubscriptionData?.level_id)
   );
-
-  console.log(groupOptions);
-  console.log(Groups);
-
-  useEffect(() => {
-    console.log(rowData);
-  }, [rowData]);
 
   function handelUpdateGroup() {
     axios
@@ -639,44 +720,139 @@ export default function ListStudents() {
       .catch((e) => console.log(e));
   }
 
+  const handleCloseSubscriptionModal = () => {
+    setAddStudentSub(null);
+    setNewSubscriptionData({
+      type: "level",
+      package_id: null,
+      level_id: null,
+      group_id: null,
+      student_id: null,
+      payed: null,
+    });
+    setRowData(null);
+  };
+
+  // ✅ Clear all filters
+  const handleClearAllFilters = () => {
+    setSearchParams({ page: "1", limit: currentLimit.toString() });
+  };
+
+  // ✅ Check if any filters are active
+  const hasActiveFilters = Array.from(searchParams.keys()).some(
+    (key) => key !== "page" && key !== "limit"
+  );
+
   return (
     <>
       <Breadcrumbs parent="Levels" title="Students" />
       <div className="container-fluid">
-        <div
-          className="row"
-          style={{
-            margin: "auto !important",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
+        <div className="row">
           <div className="col-sm-12">
             <div className="card">
               <div className="card-header">
-                <h5>List Students </h5>
-                <button
-                  className="btn btn-success"
-                  style={{ marginTop: "10px" }}
-                  onClick={handleExport}
-                >
-                  Export to Exel
-                </button>
-                <button
-                  className="btn"
+                <div
                   style={{
-                    marginTop: "10px",
-                    backgroundColor: "orangered",
-                    color: "white",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "10px",
                   }}
-                  onClick={() => setOpenAddModal(true)}
                 >
-                  Add student
-                </button>
+                  <h5 style={{ margin: 0 }}>List Students</h5>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    {hasActiveFilters && (
+                      <button
+                        className="btn btn-warning"
+                        onClick={handleClearAllFilters}
+                      >
+                        Clear All Filters
+                      </button>
+                    )}
+                  </div>
+                  <button className="btn btn-success" onClick={handleExport}>
+                    Export to Excel
+                  </button>
+                  <button
+                    className="btn"
+                    style={{
+                      backgroundColor: "orangered",
+                      color: "white",
+                    }}
+                    onClick={() => setOpenAddModal(true)}
+                  >
+                    Add Student
+                  </button>
+                </div>
               </div>
 
               <div className="card-body">
+                {/* ✅ Active Filters Display */}
+                {hasActiveFilters && (
+                  <Alert
+                    message={
+                      <div className="d-flex gap-2 align-items-center ">
+                        <strong>Active Filters: </strong>
+                        {Array.from(searchParams.entries())
+                          .filter(([key]) => key !== "page" && key !== "limit")
+                          .map(([key, value]) => (
+                            <span
+                              key={key}
+                              className="badge bg-primary"
+                              style={{ marginRight: "5px" }}
+                            >
+                              {key}: {value}
+                            </span>
+                          ))}
+                      </div>
+                    }
+                    type="info"
+                    closable
+                    onClose={handleClearAllFilters}
+                    style={{ marginBottom: "15px" }}
+                  />
+                )}
+
+                {/* ✅ Pagination Info */}
+                <div
+                  style={{
+                    marginBottom: "15px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                  }}
+                >
+                  <span>
+                    Showing{" "}
+                    <strong>
+                      {students.length > 0
+                        ? (currentPage - 1) * currentLimit + 1
+                        : 0}{" "}
+                      -{" "}
+                      {Math.min(
+                        currentPage * currentLimit,
+                        parseInt(paginationData.total_students || 0)
+                      )}
+                    </strong>{" "}
+                    of <strong>{paginationData.total_students || 0}</strong>{" "}
+                    students
+                  </span>
+                  <Select
+                    value={currentLimit}
+                    onChange={(value) => handlePageChange(1, value)}
+                    style={{ width: "120px" }}
+                  >
+                    <Option value={10}>10 / page</Option>
+                    <Option value={20}>20 / page</Option>
+                    <Option value={50}>50 / page</Option>
+                    <Option value={100}>100 / page</Option>
+                  </Select>
+                </div>
+
+                {/* Table */}
                 <Table
                   rowKey={(record) => record.student_id}
                   onChange={handleTableChange}
@@ -685,20 +861,37 @@ export default function ListStudents() {
                   }}
                   columns={columns}
                   loading={loading}
-                  dataSource={
-                    AdminData[0]?.type == "super_admin"
-                      ? students
-                      : searchText
-                      ? students
-                      : NewStudent
-                  }
+                  dataSource={students}
+                  pagination={false}
                 />
+
+                {/* ✅ Custom Pagination */}
+                <div
+                  style={{
+                    marginTop: "20px",
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Pagination
+                    current={currentPage}
+                    pageSize={currentLimit}
+                    total={parseInt(paginationData.total_students || 0)}
+                    onChange={handlePageChange}
+                    showSizeChanger
+                    showTotal={(total, range) =>
+                      `${range[0]}-${range[1]} of ${total} items`
+                    }
+                    pageSizeOptions={["10", "20", "50", "100"]}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Edit Student Modal */}
       <Modal
         title="Edit Student"
         open={EditModal}
@@ -717,7 +910,6 @@ export default function ListStudents() {
           <input
             className="form_input"
             value={EditStudentData?.name || ""}
-            onWheel={(e) => e.target.blur()}
             onChange={(e) =>
               setEditStudentData({
                 ...EditStudentData,
@@ -731,7 +923,6 @@ export default function ListStudents() {
           <input
             className="form_input"
             value={EditStudentData?.email || ""}
-            onWheel={(e) => e.target.blur()}
             onChange={(e) =>
               setEditStudentData({
                 ...EditStudentData,
@@ -745,7 +936,6 @@ export default function ListStudents() {
           <input
             className="form_input"
             value={EditStudentData?.phone || ""}
-            onWheel={(e) => e.target.blur()}
             onChange={(e) =>
               setEditStudentData({
                 ...EditStudentData,
@@ -759,7 +949,6 @@ export default function ListStudents() {
           <input
             className="form_input"
             value={EditStudentData?.parent_phone || ""}
-            onWheel={(e) => e.target.blur()}
             onChange={(e) =>
               setEditStudentData({
                 ...EditStudentData,
@@ -770,6 +959,7 @@ export default function ListStudents() {
         </div>
       </Modal>
 
+      {/* Gemini Data Modal */}
       <Modal
         title="Student Gemini Data"
         open={OpenGeminiData}
@@ -788,65 +978,57 @@ export default function ListStudents() {
             <strong>CEFR level:</strong> {OpenGeminiData?.CEFR_level}
           </p>
           <p>
-            <strong>content :</strong> {OpenGeminiData?.content}
+            <strong>Content:</strong> {OpenGeminiData?.content}
           </p>
           <p>
-            <strong>detailed feedback :</strong>{" "}
+            <strong>Detailed feedback:</strong>{" "}
             {OpenGeminiData?.detailed_feedback}
           </p>
           <p>
-            <strong>energy level :</strong> {OpenGeminiData?.energy_level}
+            <strong>Energy level:</strong> {OpenGeminiData?.energy_level}
           </p>
           <p>
-            <strong>grammar :</strong> {OpenGeminiData?.grammar}
+            <strong>Grammar:</strong> {OpenGeminiData?.grammar}
           </p>
           <p>
-            <strong>overall score :</strong> {OpenGeminiData?.overall_score}
+            <strong>Overall score:</strong> {OpenGeminiData?.overall_score}
           </p>
           <p>
-            <strong>pronunciation :</strong> {OpenGeminiData?.pronunciation}
+            <strong>Pronunciation:</strong> {OpenGeminiData?.pronunciation}
           </p>
           <p>
-            <strong>recommendation:</strong> {OpenGeminiData?.recommendation}
+            <strong>Recommendation:</strong> {OpenGeminiData?.recommendation}
           </p>
           <p>
-            <strong>score analysis test id:</strong>{" "}
-            {OpenGeminiData?.score_analysis_test_id}
-          </p>
-          <p>
-            <strong>vocabulary :</strong> {OpenGeminiData?.vocabulary}
+            <strong>Vocabulary:</strong> {OpenGeminiData?.vocabulary}
           </p>
         </>
       </Modal>
 
+      {/* Add Subscription Modal */}
       <Modal
-        title="Add student subscription"
+        title="Add Student Subscription"
         open={AddStudentSub}
-        // loading={submitting}
         footer={
           <>
             <Button
-              style={{ margin: "0px 10px " }}
+              type="primary"
               onClick={handelAddStudentSub}
               loading={submitting}
               disabled={submitting}
             >
               Add
             </Button>
-            <Button onClick={() => setAddStudentSub(null)}>Cancel</Button>
+            <Button onClick={handleCloseSubscriptionModal}>Cancel</Button>
           </>
         }
-        onCancel={() => setAddStudentSub(null)}
+        onCancel={handleCloseSubscriptionModal}
       >
         <>
-          {/* Payment Mode Tabs - Only show for new subscribers */}
+          {/* Payment Mode Tabs */}
           <div className="payment-tabs-container" style={{ margin: "20px 0" }}>
-            <div className="payment-tabs">
-              {/* Assign Now Tab */}
+            <div className="payment-tabs" style={{ display: "flex", gap: "0" }}>
               <div
-                className={`payment-tab ${
-                  paymentMode === "assign_now" ? "active" : ""
-                }`}
                 onClick={() => setPaymentMode("assign_now")}
                 style={{
                   padding: "12px 24px",
@@ -867,17 +1049,12 @@ export default function ListStudents() {
                 Assign Now
               </div>
 
-              {/* Assign Later Tab */}
               <div
-                className={`payment-tab ${
-                  paymentMode === "assign_later" ? "active" : ""
-                }`}
                 onClick={() => setPaymentMode("assign_later")}
                 style={{
                   padding: "12px 24px",
                   cursor: "pointer",
                   border: "2px solid #eb5d22",
-                  borderLeft: "2px solid #eb5d22",
                   borderRight:
                     rowData?.remaining_sub_count !== 0 &&
                     rowData?.remaining_sub_count !== "not subscription yet"
@@ -904,9 +1081,6 @@ export default function ListStudents() {
               {rowData?.remaining_sub_count !== 0 &&
                 rowData?.remaining_sub_count !== "not subscription yet" && (
                   <div
-                    className={`payment-tab ${
-                      paymentMode === "assign_group_level" ? "active" : ""
-                    }`}
                     onClick={() => setPaymentMode("assign_group_level")}
                     style={{
                       padding: "12px 24px",
@@ -925,7 +1099,7 @@ export default function ListStudents() {
                       fontSize: "14px",
                       textAlign: "center",
                       transition: "all 0.3s ease",
-                      minWidth: "100px",
+                      minWidth: "130px",
                     }}
                   >
                     Assign Group & Level
@@ -933,14 +1107,16 @@ export default function ListStudents() {
                 )}
             </div>
           </div>
-          {/* Package Selection - Only for new subscribers */}
 
-          <div className="form_field">
-            <label className="form_label">Select package</label>
+          {/* Package Selection */}
+          <div className="form_field" style={{ marginBottom: "16px" }}>
+            <label className="form_label" style={{ marginBottom: "8px" }}>
+              Select Package
+            </label>
             <Select
               placeholder="Select a package"
               style={{ width: "100%" }}
-              value={NewSubscriptionData?.package_id || ""}
+              value={NewSubscriptionData?.package_id || undefined}
               onChange={(value) =>
                 setNewSubscriptionData({
                   ...NewSubscriptionData,
@@ -949,14 +1125,14 @@ export default function ListStudents() {
               }
             >
               {paymentMode == "assign_now" || paymentMode == "assign_later"
-                ? packages.map((pkg, index) => (
-                    <Option key={index} value={pkg.package_id}>
-                      {pkg.num_of_levels}-{pkg.price}
+                ? packages.map((pkg) => (
+                    <Option key={pkg.package_id} value={pkg.package_id}>
+                      {pkg.num_of_levels} - {pkg.price}
                     </Option>
                   ))
-                : packagesStudent?.map((pkg, index) => (
-                    <Option key={index} value={pkg.package_id}>
-                      {pkg.num_of_levels}-{pkg.price}
+                : packagesStudent?.map((pkg) => (
+                    <Option key={pkg.package_id} value={pkg.package_id}>
+                      {pkg.num_of_levels} - {pkg.price}
                     </Option>
                   ))}
             </Select>
@@ -965,16 +1141,16 @@ export default function ListStudents() {
           {paymentMode == "assign_group_level" &&
             NewSubscriptionData?.package_id && (
               <Alert
-                className="my-3"
+                style={{ marginBottom: "16px" }}
                 description={
                   <div>
-                    <strong>The remaining level in this package is :</strong>{" "}
+                    <strong>Remaining levels in this package:</strong>{" "}
                     {
                       packagesStudent?.find(
                         (pkg) =>
                           pkg.package_id == NewSubscriptionData?.package_id
                       )?.remaining_levels
-                    }{" "}
+                    }
                   </div>
                 }
                 type="info"
@@ -982,46 +1158,52 @@ export default function ListStudents() {
               />
             )}
 
-          {/* Level and Group Selection - Show for assign_now or assign_group_level */}
+          {/* Level and Group Selection */}
           {(paymentMode === "assign_now" ||
             paymentMode === "assign_group_level") && (
             <>
-              <div className="form_field">
-                <label className="form_label">Select Level</label>
+              <div className="form_field" style={{ marginBottom: "16px" }}>
+                <label className="form_label" style={{ marginBottom: "8px" }}>
+                  Select Level
+                </label>
                 <Select
                   placeholder="Select a level"
                   style={{ width: "100%" }}
-                  value={NewSubscriptionData?.level_id || ""}
-                  onChange={(value) =>
-                    setNewSubscriptionData({
-                      ...NewSubscriptionData,
-                      level_id: value,
-                    })
-                  }
+                  value={NewSubscriptionData?.level_id || undefined}
+                  onChange={handleLevelChange}
                 >
-                  {Levels.map((level, index) => (
-                    <Option key={index} value={level.level_id}>
+                  {Levels.map((level) => (
+                    <Option key={level.level_id} value={level.level_id}>
                       {level.level_name}
                     </Option>
                   ))}
                 </Select>
               </div>
 
-              <div className="form_field">
-                <label className="form_label">Select group</label>
+              <div className="form_field" style={{ marginBottom: "16px" }}>
+                <label className="form_label" style={{ marginBottom: "8px" }}>
+                  Select Group
+                </label>
                 <Select
                   placeholder="Select a group"
                   style={{ width: "100%" }}
-                  value={NewSubscriptionData?.group_id || ""}
+                  value={NewSubscriptionData?.group_id || undefined}
                   onChange={(value) =>
                     setNewSubscriptionData({
                       ...NewSubscriptionData,
                       group_id: value,
                     })
                   }
+                  loading={groupsLoading}
+                  disabled={!NewSubscriptionData?.level_id}
+                  notFoundContent={
+                    groupsLoading
+                      ? "Loading..."
+                      : "No groups found for this level"
+                  }
                 >
-                  {groupOptions.map((group, index) => (
-                    <Option key={index} value={group.group_id}>
+                  {groupOptions.map((group) => (
+                    <Option key={group.group_id} value={group.group_id}>
                       {group.group_name}
                     </Option>
                   ))}
@@ -1032,16 +1214,18 @@ export default function ListStudents() {
 
           {(paymentMode == "assign_now" || paymentMode == "assign_later") && (
             <div className="form_field">
-              <label className="form_label">Student paid</label>
+              <label className="form_label" style={{ marginBottom: "8px" }}>
+                Student Paid
+              </label>
               <input
                 type="number"
                 className="form_input"
                 value={NewSubscriptionData?.payed || ""}
                 onWheel={(e) => e.target.blur()}
-                onChange={(value) =>
+                onChange={(e) =>
                   setNewSubscriptionData({
                     ...NewSubscriptionData,
-                    payed: value.target.value,
+                    payed: e.target.value,
                   })
                 }
               />
@@ -1051,16 +1235,18 @@ export default function ListStudents() {
           {paymentMode == "assign_group_level" &&
             rowData?.student_remaining_money > 0 && (
               <div className="form_field">
-                <label className="form_label">Student paid</label>
+                <label className="form_label" style={{ marginBottom: "8px" }}>
+                  Student Paid
+                </label>
                 <input
                   type="number"
                   className="form_input"
                   value={NewSubscriptionData?.payed || ""}
                   onWheel={(e) => e.target.blur()}
-                  onChange={(value) =>
+                  onChange={(e) =>
                     setNewSubscriptionData({
                       ...NewSubscriptionData,
-                      payed: value.target.value,
+                      payed: e.target.value,
                     })
                   }
                 />
@@ -1069,11 +1255,11 @@ export default function ListStudents() {
         </>
       </Modal>
 
+      {/* Exceptions Modal */}
       <Modal
         width={800}
-        title="student's complains & exceptions"
+        title="Student's Complains & Exceptions"
         open={openExceptionModal}
-        onClose={() => setExceptionModal(false)}
         onCancel={() => setExceptionModal(false)}
         footer={null}
       >
@@ -1086,14 +1272,17 @@ export default function ListStudents() {
               : []
           }
           scroll={{ x: "max-content" }}
+          pagination={false}
         />
       </Modal>
 
+      {/* Add Student Modal */}
       <Modal
         open={OpenAddModal}
         title="Add New Student"
         onCancel={() => setOpenAddModal(false)}
         footer={null}
+        width={600}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="name" label="Full Name" rules={[{ required: true }]}>
@@ -1185,13 +1374,15 @@ export default function ListStudents() {
 
           <Form.Item
             name="branch_id"
-            label="Branch ID"
+            label="Branch"
             rules={[{ required: true }]}
           >
-            <Select placeholder="Select student type">
-              {branchOptions.map((branch) => {
-                return <Option value={branch?.value}>{branch.label}</Option>;
-              })}
+            <Select placeholder="Select branch">
+              {branchOptions.map((branch) => (
+                <Option key={branch.value} value={branch.value}>
+                  {branch.label}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
 
@@ -1203,8 +1394,9 @@ export default function ListStudents() {
         </Form>
       </Modal>
 
+      {/* Update Group Modal */}
       <Modal
-        title="Select a Group"
+        title="Update Student Group"
         open={OpenUpdateGroup}
         onCancel={() => setOpenUpdateGroup(false)}
         onOk={handelUpdateGroup}
@@ -1212,16 +1404,21 @@ export default function ListStudents() {
         cancelText="Cancel"
       >
         <div className="form_field">
-          <label className="form_label">Group</label>
+          <label className="form_label" style={{ marginBottom: "8px" }}>
+            Group
+          </label>
           <Select
             placeholder="Choose a group"
             style={{ width: "100%" }}
-            value={selectedGroup}
+            value={selectedGroup || undefined}
             onChange={(value) => setSelectedGroup(value)}
-            options={Groups.map((group) => {
-              return { label: group?.group_name, value: group?.group_id };
-            })}
-          />
+          >
+            {Groups.map((group) => (
+              <Option key={group.group_id} value={group.group_id}>
+                {group.group_name}
+              </Option>
+            ))}
+          </Select>
         </div>
       </Modal>
     </>

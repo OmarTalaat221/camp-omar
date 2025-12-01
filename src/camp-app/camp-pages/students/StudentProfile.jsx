@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
-import { Button, Modal, Select, Table } from "antd";
+import { Button, Modal, Select, Table, Spin } from "antd";
 import { BASE_URL } from "../../../Api/baseUrl";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import ReactToPrint from "react-to-print";
 import { toast } from "react-toastify";
 import "./style.css";
+
+const { Option } = Select;
 
 const CustomeRecept = React.forwardRef(({ data, recordData }, ref) => {
   console.log(data);
@@ -131,6 +133,18 @@ const StudentProfile = () => {
   const [rowData, setRowData] = useState(false);
   const [textDirection, setTextDirection] = useState("ltr");
 
+  // ✅ NEW: States for Edit Level & Group
+  const [EditLevelGroupModal, setEditLevelGroupModal] = useState(false);
+  const [EditLevelGroupData, setEditLevelGroupData] = useState({
+    subscription_id: null,
+    level_id: null,
+    group_id: null,
+  });
+  const [Levels, setLevels] = useState([]);
+  const [Groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+
   const detectLanguage = (text) => {
     const arabicPattern = /[\u0600-\u06FF]/;
     return arabicPattern.test(text) ? "rtl" : "ltr";
@@ -165,6 +179,158 @@ const StudentProfile = () => {
       });
   }
 
+  // ✅ NEW: Fetch Levels
+  function handleSelectLevels() {
+    axios
+      .get(BASE_URL + "/admin/content/select_levels.php")
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          setLevels(res?.data?.message);
+        }
+      })
+      .catch((e) => console.log(e));
+  }
+
+  // ✅ NEW: Fetch Groups by Admin
+  function handleGetGroups() {
+    setGroupsLoading(true);
+    axios
+      .post(BASE_URL + "/admin/groups/select_groups_by_admin.php", {
+        admin_id: AdminData[0]?.admin_id,
+      })
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          setGroups(res?.data?.message);
+        }
+      })
+      .catch((e) => console.log(e))
+      .finally(() => setGroupsLoading(false));
+  }
+
+  // ✅ NEW: Handle Level Change - Reset group when level changes
+  const handleLevelChange = (value) => {
+    setEditLevelGroupData((prev) => ({
+      ...prev,
+      level_id: value,
+      group_id: null, // Reset group to empty
+    }));
+
+    // Fetch groups for the selected level
+    if (value) {
+      fetchGroupsByLevel(value);
+    }
+  };
+
+  // ✅ NEW: Fetch groups filtered by level
+  const fetchGroupsByLevel = async (levelId) => {
+    setGroupsLoading(true);
+    try {
+      const res = await axios.post(
+        BASE_URL + "/admin/groups/select_groups_by_admin.php",
+        {
+          admin_id: AdminData[0]?.admin_id,
+        }
+      );
+
+      if (res?.data?.status === "success") {
+        // Filter groups that match the selected level
+        const filteredGroups = res?.data?.message?.filter(
+          (gr) =>
+            gr?.group_levels?.level_id != null &&
+            String(gr.group_levels.level_id) === String(levelId)
+        );
+        setGroups(filteredGroups || []);
+      } else {
+        setGroups([]);
+      }
+    } catch (e) {
+      console.log(e);
+      setGroups([]);
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  const filteredGroupOptions = Groups?.filter(
+    (gr) =>
+      gr?.group_levels?.level_id != null &&
+      String(gr.group_levels.level_id) === String(EditLevelGroupData?.level_id)
+  );
+
+  const handleUpdateLevelGroup = () => {
+    if (!EditLevelGroupData?.level_id) {
+      toast.error("Please select a level");
+      return;
+    }
+    if (!EditLevelGroupData?.group_id) {
+      toast.error("Please select a group");
+      return;
+    }
+
+    setUpdateLoading(true);
+
+    const dataSend = {
+      subscription_id: EditLevelGroupData?.subscription_id,
+      level_id: EditLevelGroupData?.level_id,
+      group_id: EditLevelGroupData?.group_id,
+    };
+
+    axios
+      .post(
+        BASE_URL + "/admin/home/edit_student_level.php",
+        JSON.stringify(dataSend)
+      )
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          toast.success(res?.data?.message);
+          setEditLevelGroupModal(false);
+          setEditLevelGroupData({
+            subscription_id: null,
+            level_id: null,
+            group_id: null,
+          });
+          handleGetStudentData();
+        } else {
+          toast.error(res?.data?.message);
+        }
+      })
+      .catch((e) => {
+        console.log(e);
+        toast.error("Error updating level and group");
+      })
+      .finally(() => setUpdateLoading(false));
+  };
+
+  const handleOpenEditModal = (row) => {
+    setEditLevelGroupModal(true);
+    setRowData(row);
+
+    const currentLevelId = row?.level_data?.level_id || row?.level_id;
+    const currentGroupId = row?.group_data?.group_id || row?.group_id;
+
+    setEditLevelGroupData({
+      subscription_id: row?.subscription_id,
+      level_id: currentLevelId,
+      group_id: currentGroupId,
+    });
+
+    // Fetch groups for the current level
+    if (currentLevelId) {
+      fetchGroupsByLevel(currentLevelId);
+    }
+  };
+
+  // ✅ NEW: Close Edit Modal and reset
+  const handleCloseEditModal = () => {
+    setEditLevelGroupModal(false);
+    setEditLevelGroupData({
+      subscription_id: null,
+      level_id: null,
+      group_id: null,
+    });
+    setRowData(null);
+  };
+
   function handelRemoveFromGroup() {
     const dataSend = {
       subscription_id: rowData?.subscription_id,
@@ -196,6 +362,8 @@ const StudentProfile = () => {
 
   useEffect(() => {
     handleGetStudentData();
+    handleSelectLevels(); // ✅ Fetch levels on mount
+    handleGetGroups(); // ✅ Fetch groups on mount
   }, []);
 
   const columns = [
@@ -253,6 +421,7 @@ const StudentProfile = () => {
     },
   ];
 
+  // ✅ UPDATED: Added Edit button to columns_study_history
   const columns_study_history = [
     {
       title: "level_id",
@@ -269,7 +438,6 @@ const StudentProfile = () => {
         </p>
       ),
     },
-
     {
       title: "Group Name",
       dataIndex: "group_name",
@@ -290,7 +458,6 @@ const StudentProfile = () => {
         </p>
       ),
     },
-
     {
       title: "Created at",
       dataIndex: "created_at",
@@ -320,23 +487,34 @@ const StudentProfile = () => {
       ),
     },
     {
-      title: "level Action",
+      title: "Action",
       dataIndex: "x",
       key: "x",
       render: (text, row) => (
         <>
+
           <Button
+            // type="primary"
+            style={{ marginRight: "10px" }}
+            onClick={() => handleOpenEditModal(row)}
+          >
+            Edit Level & Group
+          </Button>
+
+          <Button
+            danger
             onClick={() => {
               setRemoveModal(true);
               setRowData(row);
             }}
           >
-            remove from group
+            Remove from group
           </Button>
         </>
       ),
     },
   ];
+
   const columns_study_score = [
     {
       title: "level_id",
@@ -538,10 +716,6 @@ const StudentProfile = () => {
               <div className="card-body">
                 <Table
                   rowKey={(record) => record.student_id}
-                  // onChange={handleTableChange}
-                  // scroll={{
-                  //   x: "max-content",
-                  // }}
                   columns={columns}
                   dataSource={StudentData}
                 />
@@ -567,6 +741,7 @@ const StudentProfile = () => {
             </div>
           </div>
         </div>
+
         <div className="row">
           <div className="col-sm-12">
             <div className="card">
@@ -576,7 +751,7 @@ const StudentProfile = () => {
 
               <div className="card-body">
                 <Table
-                  rowKey={(record) => record.student_id}
+                  rowKey={(record) => record.subscription_id}
                   columns={columns_study_history}
                   dataSource={StudentData[0]?.student_subscriptions}
                 />
@@ -689,6 +864,108 @@ const StudentProfile = () => {
         </>
       )}
 
+      {/* ✅ NEW: Edit Level & Group Modal */}
+      <Modal
+        title="Edit Level & Group"
+        open={EditLevelGroupModal}
+        onCancel={handleCloseEditModal}
+        footer={
+          <>
+            <Button
+              // type="primary"
+              style={{ marginRight: "10px" }}
+              onClick={handleUpdateLevelGroup}
+              loading={updateLoading}
+              disabled={updateLoading}
+            >
+              Update
+            </Button>
+            <Button onClick={handleCloseEditModal}>Cancel</Button>
+          </>
+        }
+      >
+        {/* Current Info Display */}
+        <div
+          style={{
+            backgroundColor: "#f5f5f5",
+            padding: "10px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+          }}
+        >
+          <p style={{ margin: 0 }}>
+            <strong>Current Level:</strong>{" "}
+            {rowData?.level_data?.level_name || "N/A"}
+          </p>
+          <p style={{ margin: 0 }}>
+            <strong>Current Group:</strong>{" "}
+            {rowData?.group_data?.group_name || "N/A"}
+          </p>
+        </div>
+
+        {/* Level Select */}
+        <div className="form_field" style={{ marginBottom: "16px" }}>
+          <label
+            className="form_label"
+            style={{ display: "block", marginBottom: "8px", fontWeight: "600" }}
+          >
+            Select Level
+          </label>
+          <Select
+            placeholder="Select a level"
+            style={{ width: "100%" }}
+            value={EditLevelGroupData?.level_id || undefined}
+            onChange={handleLevelChange}
+          >
+            {Levels.map((level) => (
+              <Option key={level.level_id} value={level.level_id}>
+                {level.level_name}
+              </Option>
+            ))}
+          </Select>
+        </div>
+
+        {/* Group Select */}
+        <div className="form_field">
+          <label
+            className="form_label"
+            style={{ display: "block", marginBottom: "8px", fontWeight: "600" }}
+          >
+            Select Group
+          </label>
+          <Select
+            placeholder={
+              EditLevelGroupData?.level_id
+                ? "Select a group"
+                : "Please select a level first"
+            }
+            style={{ width: "100%" }}
+            value={EditLevelGroupData?.group_id || undefined}
+            onChange={(value) =>
+              setEditLevelGroupData({
+                ...EditLevelGroupData,
+                group_id: value,
+              })
+            }
+            loading={groupsLoading}
+            disabled={!EditLevelGroupData?.level_id}
+            notFoundContent={
+              groupsLoading ? (
+                <Spin size="small" />
+              ) : (
+                "No groups found for this level"
+              )
+            }
+          >
+            {filteredGroupOptions.map((group) => (
+              <Option key={group.group_id} value={group.group_id}>
+                {group.group_name}
+              </Option>
+            ))}
+          </Select>
+        </div>
+      </Modal>
+
       <Modal
         title={`Update invoice /invoice id => #${UpdateInvoice?.payment_id}`}
         open={UpdateInvoice}
@@ -700,7 +977,7 @@ const StudentProfile = () => {
             >
               Update
             </Button>
-            <Button>Cancel</Button>
+            <Button onClick={() => setUpdateInvoice(null)}>Cancel</Button>
           </>
         }
         onCancel={() => setUpdateInvoice(null)}
