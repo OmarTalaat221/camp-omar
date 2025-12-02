@@ -95,7 +95,6 @@ export default function ListStudents() {
     setSearchParams(params);
   };
 
-  // ✅ Handle page change
   const handlePageChange = (page, pageSize) => {
     updateSearchParams({
       page: page,
@@ -109,11 +108,10 @@ export default function ListStudents() {
     }
   };
 
-  // ✅ UPDATED: Handle column search - updates URL params
   const handleSearch = (value, dataIndex) => {
     updateSearchParams({
       [dataIndex]: value,
-      page: 1, // Reset to page 1 when searching
+      page: 1,
     });
   };
 
@@ -121,7 +119,7 @@ export default function ListStudents() {
   const handleReset = (dataIndex) => {
     const params = new URLSearchParams(searchParams);
     params.delete(dataIndex);
-    params.set("page", "1"); // Reset to page 1
+    params.set("page", "1");
     setSearchParams(params);
   };
 
@@ -461,9 +459,14 @@ export default function ListStudents() {
 
     const params = new URLSearchParams({
       admin_type: AdminData[0]?.type,
+
       page: currentPage.toString(),
       limit: currentLimit.toString(),
     });
+
+    if (AdminData[0]?.type != "super_admin") {
+      params.append("branch_id", AdminData[0]?.branch_id);
+    }
 
     searchParams.forEach((value, key) => {
       if (key !== "page" && key !== "limit" && value) {
@@ -503,7 +506,6 @@ export default function ListStudents() {
       .finally(() => setLoading(false));
   }
 
-  // ✅ Re-fetch when URL params change
   useEffect(() => {
     handleGetAllStudents();
   }, [searchParams]);

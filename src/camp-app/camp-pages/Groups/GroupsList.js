@@ -301,6 +301,21 @@ const GroupsList = () => {
               </button>
             ),
           },
+
+          {
+            key: "3",
+            label: (
+              <button
+                className="btn btn-primary"
+                style={{ width: "100%" }}
+                onClick={() =>
+                  navigate(`/instructions?group_id=${row?.group_id}`)
+                }
+              >
+                Instructions{" "}
+              </button>
+            ),
+          },
           {
             key: "4",
             label: (

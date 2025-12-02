@@ -48,6 +48,7 @@ import FormsStudentRespons from "../camp-app/camp-pages/Questionnaire/FormsStude
 import Voices from "../camp-app/camp-pages/Voices/Voices";
 import BranchStudents from "../camp-app/camp-pages/Branches/BranchStudents";
 import UpgradeStudentRound from "../camp-app/camp-pages/Roundes/UpgradeStudentRound";
+import GroupInstructions from "../camp-app/camp-pages/Instructions/instructions";
 
 export const AdminData = JSON.parse(localStorage.getItem("AdminData"));
 
@@ -66,7 +67,12 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/teckets`,
           Component: <Teckets />,
         },
+          {
+          path: `${process.env.PUBLIC_URL}/instructions`,
+          Component: <GroupInstructions />,
+        },
         {
+          
           path: `${process.env.PUBLIC_URL}/teckets/:id`,
           Component: <TeketDetails />,
         },
@@ -275,6 +281,10 @@ export const routes =
         {
           path: `${process.env.PUBLIC_URL}/teckets/:id`,
           Component: <TeketDetails />,
+        },
+          {
+          path: `${process.env.PUBLIC_URL}/instructions`,
+          Component: <GroupInstructions />,
         },
 
         {
@@ -623,6 +633,10 @@ export const routes =
           Component: <Refunds />,
         },
         {
+          path: `${process.env.PUBLIC_URL}/instructions`,
+          Component: <GroupInstructions />,
+        },
+        {
           path: `${process.env.PUBLIC_URL}/debtors`,
           Component: <Debtors />,
         },
@@ -674,6 +688,11 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/teckets`,
           Component: <Teckets />,
         },
+  {
+          path: `${process.env.PUBLIC_URL}/instructions`,
+          Component: <GroupInstructions />,
+        },
+        
         {
           path: `${process.env.PUBLIC_URL}/teckets/:id`,
           Component: <TeketDetails />,
@@ -870,7 +889,6 @@ export const routes =
       ]
     : AdminData?.length > 0 // Any other logged-in user type
     ? [
-        // Limited access for other user types - only show basic pages
         {
           path: "*",
           Component: (

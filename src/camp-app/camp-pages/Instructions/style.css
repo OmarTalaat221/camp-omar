@@ -1,0 +1,588 @@
+/* Group Instructions Styles */
+.group-instructions-card {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.group-instructions-header {
+  background: linear-gradient(135deg, #eb5d22 0%, #c74617 100%);
+  border: none;
+  padding: 24px 32px;
+}
+
+.group-instructions-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.group-instructions-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-instructions-header-icon {
+  font-size: 28px;
+  color: #ffffff;
+}
+
+.group-instructions-header h5 {
+  color: #ffffff;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.group-instructions-header p {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 4px 0 0 0;
+  font-size: 14px;
+}
+
+.group-instructions-header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Instructions Container */
+.group-instructions-container {
+  padding: 32px;
+  background: #f8f9fa;
+  min-height: 500px;
+}
+
+/* Add Instruction Button */
+.add-instruction-btn {
+  background: linear-gradient(135deg, #eb5d22 0%, #c74617 100%) !important;
+  border: none !important;
+  height: 40px;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(235, 93, 34, 0.3);
+}
+
+.add-instruction-btn:hover {
+  background: linear-gradient(135deg, #d95520 0%, #b33f15 100%) !important;
+  box-shadow: 0 6px 16px rgba(235, 93, 34, 0.4) !important;
+}
+
+/* Instruction Cards Grid */
+.instructions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+/* Individual Instruction Card */
+.instruction-item-card {
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border: 2px solid #fde8dd;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.instruction-item-card:hover {
+  border-color: #eb5d22;
+  box-shadow: 0 8px 24px rgba(235, 93, 34, 0.15);
+  transform: translateY(-4px);
+}
+
+/* Card Header */
+.instruction-item-header {
+  background: linear-gradient(135deg, #fef5f1 0%, #ffffff 100%);
+  padding: 16px 20px;
+  border-bottom: 1px solid #fde8dd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.instruction-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.instruction-type-badge.text {
+  background: linear-gradient(135deg, #eb5d22 0%, #c74617 100%);
+  color: #ffffff;
+}
+
+.instruction-type-badge.image {
+  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+  color: #ffffff;
+}
+
+.instruction-type-badge.video {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #ffffff;
+}
+
+.instruction-type-badge.voice {
+  background: linear-gradient(135deg, #722ed1 0%, #531dab 100%);
+  color: #ffffff;
+}
+
+.instruction-type-badge.file_attachment {
+  background: linear-gradient(135deg, #faad14 0%, #d48806 100%);
+  color: #ffffff;
+}
+
+.instruction-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Card Body */
+.instruction-item-body {
+  padding: 20px;
+}
+
+/* Text Content */
+.instruction-text-content {
+  color: #1a1a1a;
+  font-size: 14px;
+  line-height: 1.8;
+  word-wrap: break-word;
+}
+
+/* Image Gallery */
+.instruction-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.instruction-image-wrapper {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #f0f0f0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.instruction-image-wrapper:hover {
+  border-color: #eb5d22;
+  transform: scale(1.05);
+}
+
+.instruction-image-wrapper img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+.instruction-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.instruction-image-wrapper:hover .instruction-image-overlay {
+  opacity: 1;
+}
+
+.instruction-image-overlay-icon {
+  color: #ffffff;
+  font-size: 24px;
+}
+
+/* Video Player */
+.instruction-video-wrapper {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000000;
+  aspect-ratio: 16/9;
+}
+
+.instruction-video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Audio Player */
+.instruction-audio-wrapper {
+  padding: 20px;
+  background: linear-gradient(135deg, #fef5f1 0%, #ffffff 100%);
+  border-radius: 12px;
+  border: 2px solid #fde8dd;
+}
+
+.instruction-audio-wrapper audio {
+  width: 100%;
+}
+
+/* File Preview */
+.instruction-file-preview {
+  display: flex;
+  align-items: center;
+  /* justify-content: ; */
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fef5f1 0%, #ffffff 100%);
+  border-radius: 12px;
+  border: 2px solid #fde8dd;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.instruction-file-preview:hover {
+  background: #ffffff;
+  border-color: #eb5d22;
+}
+
+.instruction-file-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eb5d22 0%, #c74617 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.instruction-file-info h6 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.instruction-file-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #999;
+}
+
+/* Card Footer */
+.instruction-item-footer {
+  background: #f8f9fa;
+  padding: 12px 20px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.instruction-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #999;
+  font-size: 12px;
+}
+
+.instruction-date-icon {
+  font-size: 14px;
+}
+
+/* Empty State */
+.instructions-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.instructions-empty-icon {
+  font-size: 64px;
+  color: #d9d9d9;
+  margin-bottom: 16px;
+}
+
+.instructions-empty-state h5 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.instructions-empty-state p {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: #999;
+}
+
+/* Modal Styles */
+.instruction-modal .ant-modal-header {
+  border-bottom: 2px solid #f0f0f0;
+  padding: 20px 24px;
+}
+
+.instruction-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.instruction-modal-icon {
+  font-size: 24px;
+  color: #eb5d22;
+}
+
+.instruction-modal .ant-modal-body {
+  padding: 24px;
+}
+
+/* Form Styles */
+.instruction-form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.instruction-form-label-icon {
+  font-size: 16px;
+  color: #eb5d22;
+}
+
+.instruction-type-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.instruction-type-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: 2px solid #e8e8e8;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #ffffff;
+}
+
+.instruction-type-option:hover {
+  border-color: #fde8dd;
+  background: #fef5f1;
+}
+
+.instruction-type-option.active {
+  border-color: #eb5d22;
+  background: linear-gradient(135deg, #fef5f1 0%, #ffffff 100%);
+  box-shadow: 0 4px 12px rgba(235, 93, 34, 0.15);
+}
+
+.instruction-type-option-icon {
+  font-size: 32px;
+  color: #666;
+  transition: color 0.3s ease;
+}
+
+.instruction-type-option.active .instruction-type-option-icon {
+  color: #eb5d22;
+}
+
+.instruction-type-option-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+}
+
+.instruction-type-option.active .instruction-type-option-label {
+  color: #eb5d22;
+}
+
+/* Upload Area */
+.instruction-upload-area {
+  border: 2px dashed #e8e8e8;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+}
+
+.instruction-upload-area:hover {
+  border-color: #eb5d22;
+  background: #fef5f1;
+}
+
+.instruction-upload-icon {
+  font-size: 48px;
+  color: #d9d9d9;
+  margin-bottom: 12px;
+}
+
+.instruction-upload-area:hover .instruction-upload-icon {
+  color: #eb5d22;
+}
+
+.instruction-upload-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.instruction-upload-hint {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Upload List */
+.instruction-upload-list {
+  margin-top: 16px;
+}
+
+.instruction-upload-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.instruction-upload-item-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #eb5d22 0%, #c74617 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.instruction-upload-item-info {
+  flex: 1;
+}
+
+.instruction-upload-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.instruction-upload-item-size {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Custom Ant Design Overrides */
+.instruction-modal .ant-input,
+.instruction-modal .ant-input-textarea textarea {
+  border-color: #e8e8e8;
+  border-radius: 8px;
+}
+
+.instruction-modal .ant-input:focus,
+.instruction-modal .ant-input-textarea textarea:focus {
+  border-color: #eb5d22;
+  box-shadow: 0 0 0 2px rgba(235, 93, 34, 0.1);
+}
+
+.instruction-modal .ant-btn-primary {
+  background: linear-gradient(135deg, #eb5d22 0%, #c74617 100%);
+  border: none;
+}
+
+.instruction-modal .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #d95520 0%, #b33f15 100%);
+}
+
+/* Image Preview Modal */
+.image-preview-modal .ant-modal-body {
+  padding: 0;
+}
+
+.image-preview-modal img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Loading State */
+.instruction-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .group-instructions-header {
+    padding: 16px 20px;
+  }
+
+  .group-instructions-container {
+    padding: 20px;
+  }
+
+  .instructions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .instruction-type-selector {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .instruction-images-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .group-instructions-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .group-instructions-header-actions {
+    width: 100%;
+  }
+
+  .instruction-type-selector {
+    grid-template-columns: 1fr;
+  }
+}
