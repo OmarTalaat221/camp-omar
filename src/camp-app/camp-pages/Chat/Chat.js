@@ -52,6 +52,7 @@ const Chat = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [audioMimeType, setAudioMimeType] = useState("audio/webm");
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -69,26 +70,72 @@ const Chat = () => {
     additionalData?.image ||
     "https://res.cloudinary.com/dhgp9dzdt/image/upload/v1749036826/WhatsApp_Image_2025-06-04_at_14.31.19_e58a8cb4_b9cvno.jpg";
 
+  // Get supported audio MIME type
+  const getSupportedAudioMimeType = () => {
+    const types = [
+      "audio/mp4",
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/ogg",
+    ];
+
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log("Supported audio MIME type:", type);
+        return type;
+      }
+    }
+
+    console.warn("No preferred MIME type supported, using default");
+    return "audio/webm"; // fallback
+  };
+
+  // Get file extension based on MIME type
+  const getFileExtension = (mimeType) => {
+    if (mimeType.includes("mp4")) return "m4a";
+    if (mimeType.includes("webm")) return "webm";
+    if (mimeType.includes("ogg")) return "ogg";
+    return "webm"; // fallback
+  };
+
   // Audio Recording Functions
   const startRecording = async () => {
     try {
+      console.log("Starting audio recording...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const mediaRecorder = new MediaRecorder(stream);
+      // Get the best supported MIME type
+      const mimeType = getSupportedAudioMimeType();
+      setAudioMimeType(mimeType);
+
+      console.log("Using MIME type:", mimeType);
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: mimeType,
+      });
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          console.log("Audio chunk recorded:", event.data.size, "bytes");
         }
       };
 
       mediaRecorder.onstop = () => {
+        console.log("Recording stopped, creating blob...");
         const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
+          type: mimeType,
         });
         const audioUrl = URL.createObjectURL(audioBlob);
+
+        console.log("Audio blob created:", {
+          size: audioBlob.size,
+          type: audioBlob.type,
+        });
 
         setAudioBlob(audioBlob);
         setAudioUrl(audioUrl);
@@ -105,14 +152,19 @@ const Chat = () => {
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
+
+      console.log("Recording started successfully");
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      alert("Could not access microphone. Please check permissions.");
+      alert(
+        "Could not access microphone. Please check permissions and try again."
+      );
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      console.log("Stopping recording...");
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsPaused(false);
@@ -126,11 +178,13 @@ const Chat = () => {
   const pauseRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       if (isPaused) {
+        console.log("Resuming recording...");
         mediaRecorderRef.current.resume();
         recordingIntervalRef.current = setInterval(() => {
           setRecordingTime((prev) => prev + 1);
         }, 1000);
       } else {
+        console.log("Pausing recording...");
         mediaRecorderRef.current.pause();
         if (recordingIntervalRef.current) {
           clearInterval(recordingIntervalRef.current);
@@ -141,6 +195,7 @@ const Chat = () => {
   };
 
   const cancelRecording = () => {
+    console.log("Cancelling recording...");
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream
@@ -161,6 +216,7 @@ const Chat = () => {
   };
 
   const deleteAudioRecording = () => {
+    console.log("Deleting audio recording...");
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
     }
@@ -178,27 +234,89 @@ const Chat = () => {
       .padStart(2, "0")}`;
   };
 
-  // Send audio message via API
+  // Send audio message via API - Updated to handle MP4/M4A
   const sendAudioMessage = async () => {
-    if (!audioBlob || !chatId) return;
+    if (!audioBlob || !chatId) {
+      console.error("Missing required data for audio upload");
+      alert("Missing required data. Please try recording again.");
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
 
-    const formData = new FormData();
-    // Create a file from the blob with proper extension
-    const audioFile = new File([audioBlob], `audio_${Date.now()}.webm`, {
-      type: "audio/webm",
-    });
-
-    formData.append("file", audioFile);
-    formData.append("chatId", chatId);
-    formData.append("senderId", adminId);
-    formData.append("senderRole", "admin");
-    formData.append("senderName", senderName);
-    formData.append("messageType", "audio");
-
     try {
+      console.log("=== Starting Audio Upload ===");
+      console.log("Audio blob:", {
+        size: audioBlob.size,
+        type: audioBlob.type,
+      });
+      console.log("Audio MIME type:", audioMimeType);
+      console.log("Chat ID:", chatId);
+      console.log("Group ID:", group_id);
+      console.log("Admin ID:", adminId);
+      console.log("Sender Name:", senderName);
+
+      // Validate required data
+      if (!chatId) {
+        throw new Error("Chat ID is missing");
+      }
+      if (!adminId) {
+        throw new Error("Admin ID is missing");
+      }
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error("Audio blob is missing or empty");
+      }
+
+      const formData = new FormData();
+
+      // Get the appropriate file extension
+      const fileExtension = getFileExtension(audioMimeType);
+      const fileName = `audio_${Date.now()}.${fileExtension}`;
+
+      console.log("File name:", fileName);
+      console.log("File extension:", fileExtension);
+
+      // Create a file from the blob with proper extension and metadata
+      const audioFile = new File([audioBlob], fileName, {
+        type: audioMimeType,
+        lastModified: Date.now(),
+      });
+
+      console.log("Audio file created:", {
+        name: audioFile.name,
+        type: audioFile.type,
+        size: audioFile.size,
+        sizeInMB: (audioFile.size / 1024 / 1024).toFixed(2) + " MB",
+      });
+
+      // Append data to FormData
+      formData.append("file", audioFile);
+      formData.append("chatId", String(chatId));
+      formData.append("senderId", String(adminId));
+      formData.append("senderRole", "admin");
+      formData.append("senderName", senderName);
+      formData.append("messageType", "audio");
+
+      // Log FormData entries
+      console.log("FormData entries:");
+      for (let pair of formData.entries()) {
+        if (pair[0] === "file") {
+          console.log(pair[0], ":", {
+            name: pair[1].name,
+            type: pair[1].type,
+            size: pair[1].size,
+          });
+        } else {
+          console.log(pair[0], ":", pair[1]);
+        }
+      }
+
+      console.log(
+        "Sending to:",
+        `${backendUrl}/campForEnglishChat/groupChat/sendMedia`
+      );
+
       const response = await axios.post(
         `${backendUrl}/campForEnglishChat/groupChat/sendMedia`,
         formData,
@@ -206,23 +324,26 @@ const Chat = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
+          timeout: 180000, // 3 minute timeout
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
-              const progress = Math.round(
+              const percentCompleted = Math.round(
                 (progressEvent.loaded * 100) / progressEvent.total
               );
-              setUploadProgress(progress);
+              console.log("Upload progress:", percentCompleted + "%");
+              setUploadProgress(percentCompleted);
             }
           },
         }
       );
 
-      console.log("Audio uploaded successfully:", response.data);
-
+      console.log("Upload response:", response.data);
       const messageData = response.data;
-      const newMessage = {
+
+      // Format the message similar to how images/videos are handled
+      const formattedMessage = {
         _id: messageData.messageId,
-        text: messageData.messageText,
+        text: messageData.messageText || "",
         createdAt: new Date(messageData.createdAt),
         user: {
           _id: messageData.senderId,
@@ -236,23 +357,46 @@ const Chat = () => {
         messageType: messageData.messageType,
       };
 
+      console.log("Formatted message:", formattedMessage);
+
+      // Add to messages state
       setMessages((prevMessages) => {
         const messageExists = prevMessages.some(
-          (msg) => msg._id === newMessage._id
+          (msg) => msg._id === formattedMessage._id
         );
         if (messageExists) {
+          console.log("Message already exists in state");
           return prevMessages;
         }
-        return [...prevMessages, newMessage];
+        console.log("Adding message to state");
+        return [...prevMessages, formattedMessage];
       });
 
       // Clear audio recording
       deleteAudioRecording();
       setUploadProgress(0);
+
+      console.log("=== Audio Upload Completed Successfully ===");
     } catch (error) {
-      console.error("Failed to upload audio:", error);
-      console.error("Error details:", error.response?.data);
-      alert("Failed to upload audio. Please try again.");
+      console.error("=== Audio Upload Failed ===");
+      console.error("Error object:", error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      console.error("Error config:", error.config);
+
+      let errorMessage = "Failed to upload audio";
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage = "Upload timeout. Please try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert(`Upload Error: ${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
@@ -433,29 +577,69 @@ const Chat = () => {
     const target = event.target;
     const file = target.files?.[0];
     if (file) {
+      console.log("File selected:", {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      });
       setSelectedFile(file);
     }
   };
 
+  // Updated handleMediaUpload to match the pattern
   const handleMediaUpload = async () => {
-    if (!selectedFile || !chatId) return;
+    if (!selectedFile || !chatId) {
+      console.error("Missing required data for media upload");
+      alert("Missing required data. Please try again.");
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    formData.append("chatId", chatId);
-    formData.append("senderId", adminId);
-    formData.append("senderRole", "admin");
-    formData.append("senderName", senderName);
-
-    const messageType = selectedFile.type.startsWith("image/")
-      ? "image"
-      : "video";
-    formData.append("messageType", messageType);
-
     try {
+      console.log("=== Starting Media Upload ===");
+      console.log("Selected file:", {
+        name: selectedFile.name,
+        type: selectedFile.type,
+        size: selectedFile.size,
+        sizeInMB: (selectedFile.size / 1024 / 1024).toFixed(2) + " MB",
+      });
+      console.log("Chat ID:", chatId);
+      console.log("Group ID:", group_id);
+      console.log("Admin ID:", adminId);
+      console.log("Sender Name:", senderName);
+
+      // Validate required data
+      if (!chatId) {
+        throw new Error("Chat ID is missing");
+      }
+      if (!adminId) {
+        throw new Error("Admin ID is missing");
+      }
+      if (!selectedFile) {
+        throw new Error("Selected file is missing");
+      }
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("chatId", String(chatId));
+      formData.append("senderId", String(adminId));
+      formData.append("senderRole", "admin");
+      formData.append("senderName", senderName);
+
+      const messageType = selectedFile.type.startsWith("image/")
+        ? "image"
+        : "video";
+      formData.append("messageType", messageType);
+
+      console.log("FormData created successfully");
+      console.log("Message type:", messageType);
+      console.log(
+        "Sending to:",
+        `${backendUrl}/campForEnglishChat/groupChat/sendMedia`
+      );
+
       const response = await axios.post(
         `${backendUrl}/campForEnglishChat/groupChat/sendMedia`,
         formData,
@@ -463,21 +647,26 @@ const Chat = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
+          timeout: 180000, // 3 minute timeout
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
-              const progress = Math.round(
+              const percentCompleted = Math.round(
                 (progressEvent.loaded * 100) / progressEvent.total
               );
-              setUploadProgress(progress);
+              console.log("Upload progress:", percentCompleted + "%");
+              setUploadProgress(percentCompleted);
             }
           },
         }
       );
 
+      console.log("Upload response:", response.data);
       const messageData = response.data;
-      const newMessage = {
+
+      // Format the message
+      const formattedMessage = {
         _id: messageData.messageId,
-        text: messageData.messageText,
+        text: messageData.messageText || "",
         createdAt: new Date(messageData.createdAt),
         user: {
           _id: messageData.senderId,
@@ -496,24 +685,48 @@ const Chat = () => {
         messageType: messageData.messageType,
       };
 
+      console.log("Formatted message:", formattedMessage);
+
+      // Add to messages state
       setMessages((prevMessages) => {
         const messageExists = prevMessages.some(
-          (msg) => msg._id === newMessage._id
+          (msg) => msg._id === formattedMessage._id
         );
         if (messageExists) {
+          console.log("Message already exists in state");
           return prevMessages;
         }
-        return [...prevMessages, newMessage];
+        console.log("Adding message to state");
+        return [...prevMessages, formattedMessage];
       });
 
+      // Clear file selection
       setSelectedFile(null);
       setUploadProgress(0);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+
+      console.log("=== Media Upload Completed Successfully ===");
     } catch (error) {
-      console.error("Failed to upload media:", error);
-      alert("Failed to upload media. Please try again.");
+      console.error("=== Media Upload Failed ===");
+      console.error("Error object:", error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      let errorMessage = "Failed to upload media";
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage = "Upload timeout. Please try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert(`Upload Error: ${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
@@ -615,7 +828,7 @@ const Chat = () => {
         `${backendUrl}/campForEnglishChat/groupChat/sendMessage`,
         {
           chatId,
-          group_id,
+          groupId: group_id,
           senderId: adminId,
           senderRole: "admin",
           messageText: newMessage,
@@ -731,18 +944,20 @@ const Chat = () => {
                   </div>
                 )}
 
-                {/* {msg.audio && (
+                {msg.audio && (
                   <div style={styles.mediaContainer}>
                     <div style={styles.audioMessageContainer}>
                       <MdMic size={20} color="#0c5460" />
                       <audio controls style={styles.audioMessage}>
+                        <source src={msg.audio} type="audio/mp4" />
                         <source src={msg.audio} type="audio/webm" />
                         <source src={msg.audio} type="audio/mpeg" />
+                        <source src={msg.audio} type="audio/ogg" />
                         Your browser does not support the audio element.
                       </audio>
                     </div>
                   </div>
-                )} */}
+                )}
               </div>
             </div>
           ))}
@@ -767,6 +982,9 @@ const Chat = () => {
                 <div style={styles.recordingDot}></div>
                 <span style={styles.recordingText}>
                   {isPaused ? "Paused" : "Recording..."}
+                </span>
+                <span style={styles.recordingFormat}>
+                  ({getFileExtension(audioMimeType).toUpperCase()})
                 </span>
               </div>
               <span style={styles.recordingTime}>
@@ -804,7 +1022,7 @@ const Chat = () => {
           </div>
         )}
 
-        {/* Audio Preview Section
+        {/* Audio Preview Section */}
         {audioUrl && !isRecording && (
           <div style={styles.audioPreviewSection}>
             <div style={styles.audioPreviewInfo}>
@@ -813,10 +1031,20 @@ const Chat = () => {
               >
                 <MdMic size={20} color="#0c5460" />
                 <span style={styles.audioLabel}>Audio recorded</span>
+                <span style={styles.audioFormat}>
+                  ({getFileExtension(audioMimeType).toUpperCase()})
+                </span>
               </div>
-              <span style={styles.audioDuration}>
-                {formatTime(recordingTime)}
-              </span>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <span style={styles.audioDuration}>
+                  {formatTime(recordingTime)}
+                </span>
+                <span style={styles.audioSize}>
+                  ({(audioBlob?.size / 1024).toFixed(2)} KB)
+                </span>
+              </div>
             </div>
             <audio
               ref={audioPreviewRef}
@@ -843,7 +1071,9 @@ const Chat = () => {
               >
                 <MdUpload size={18} />
                 <span style={{ marginLeft: "5px" }}>
-                  {isUploading ? "Uploading..." : "Send Audio"}
+                  {isUploading
+                    ? `Uploading... ${uploadProgress}%`
+                    : "Send Audio"}
                 </span>
               </button>
               <button
@@ -856,7 +1086,7 @@ const Chat = () => {
               </button>
             </div>
           </div>
-        )} */}
+        )}
 
         {/* File Upload Section */}
         {selectedFile && (
@@ -884,10 +1114,15 @@ const Chat = () => {
                 style={styles.uploadButton}
                 disabled={isUploading}
               >
-                {isUploading ? "Uploading..." : "Upload"}
+                {isUploading ? `Uploading... ${uploadProgress}%` : "Upload"}
               </button>
               <button
-                onClick={() => setSelectedFile(null)}
+                onClick={() => {
+                  setSelectedFile(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                }}
                 style={styles.cancelButton}
                 disabled={isUploading}
               >
@@ -918,7 +1153,7 @@ const Chat = () => {
           />
 
           {/* Microphone Button */}
-          {/* <button
+          <button
             onClick={isRecording ? stopRecording : startRecording}
             style={{
               ...styles.micButton,
@@ -928,7 +1163,7 @@ const Chat = () => {
             disabled={audioUrl !== null}
           >
             <MdMic size={20} />
-          </button> */}
+          </button>
 
           {/* File Upload Button */}
           <input
@@ -1136,6 +1371,13 @@ const styles = {
     fontWeight: "bold",
     color: "#856404",
   },
+  recordingFormat: {
+    fontSize: "11px",
+    color: "#856404",
+    backgroundColor: "rgba(0,0,0,0.1)",
+    padding: "2px 6px",
+    borderRadius: "4px",
+  },
   recordingTime: {
     fontSize: "16px",
     fontWeight: "bold",
@@ -1202,10 +1444,21 @@ const styles = {
     fontWeight: "bold",
     color: "#0c5460",
   },
+  audioFormat: {
+    fontSize: "11px",
+    color: "#0c5460",
+    backgroundColor: "rgba(0,0,0,0.1)",
+    padding: "2px 6px",
+    borderRadius: "4px",
+  },
   audioDuration: {
     fontSize: "14px",
     color: "#0c5460",
     fontFamily: "monospace",
+  },
+  audioSize: {
+    fontSize: "11px",
+    color: "#0c5460",
   },
   audioPlayer: {
     width: "100%",

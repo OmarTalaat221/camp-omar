@@ -1,3 +1,4 @@
+// src/component/common/header/header.jsx
 import React, {
   useState,
   useEffect,
@@ -21,44 +22,44 @@ import {
   Maximize,
   Search,
   MoreHorizontal,
+  Bell,
 } from "react-feather";
 import { Row, Col, Form, FormGroup, Button } from "reactstrap";
 import { MENUITEMS } from "../sidebar/menu";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-// import Noty from "./Noty"
-// import app from "../../../data/base";
-
 import io from "socket.io-client";
+import { useNotification } from "../../../context/NotificationContext";
+// import { useNotification } from "../../../component/notifications/NotificationProvider";
 
 const socket = io("https://camp-coding.tech", {
   path: "/campForEnglishChat/socket.io",
 });
+
 const Header = (props) => {
   const history = useNavigate();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState("");
   const [name, setName] = useState("");
-  // eslint-disable-next-line
   const [mainmenu, setMainMenu] = useState(MENUITEMS);
   const [searchValue, setsearchValue] = useState("");
   const [navmenu, setNavmenu] = useState(false);
   const [searchinput, setSearchinput] = useState(false);
   const [spinner, setspinner] = useState(false);
-  // eslint-disable-next-line
   const [searchResult, setSearchResult] = useState(false);
-  // eslint-disable-next-line
   const [searchResultEmpty, setSearchResultEmpty] = useState(false);
   const [sidebar, setSidebar] = useState("iconsidebar-menu");
   const [rightSidebar, setRightSidebar] = useState(true);
   const width = useWindowSize();
+
+  // Get notification context
+  const notification = useNotification();
 
   const escFunction = useCallback((event) => {
     if (event.keyCode === 27) {
       setsearchValue("");
     }
   }, []);
-
-  const navigate = useNavigate();
 
   function useWindowSize() {
     const [size, setSize] = useState([0, 0]);
@@ -74,22 +75,20 @@ const Header = (props) => {
   }
 
   useEffect(() => {
-    // useWindowSize();
     if (width <= 991) {
       setSidebar("iconbar-second-close");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.add("iconbar-second-close");
+        ?.classList.add("iconbar-second-close");
     } else {
       setSidebar("iconsidebar-menu");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.remove("iconbar-second-close");
+        ?.classList.remove("iconbar-second-close");
     }
 
     setProfile(man);
     setName(localStorage.getItem("Name"));
-    // document.querySelector(".iconsidebar-menu").classList.add('iconbar-second-close');
     document.addEventListener("keydown", escFunction, false);
 
     return () => {
@@ -97,12 +96,26 @@ const Header = (props) => {
     };
   }, [escFunction, width]);
 
-  const logOuts = () => {
-    localStorage.removeItem("AdminData");
-    window.location.reload();
-    window.location.href = "/";
-    // history(`${process.env.PUBLIC_URL}/login`);
-    // app.auth().signOut();
+  // Logout function with FCM cleanup
+  const logOuts = async () => {
+    try {
+      // Cleanup FCM token
+      if (notification?.cleanup) {
+        await notification.cleanup();
+        console.log("✅ FCM token cleaned up on logout");
+      }
+    } catch (error) {
+      console.error("Error cleaning up FCM:", error);
+    } finally {
+      // Clear local storage
+      localStorage.removeItem("AdminData");
+      localStorage.removeItem("token");
+      localStorage.removeItem("fcm_token");
+
+      // Reload page
+      window.location.reload();
+      window.location.href = "/";
+    }
   };
 
   const handleSearchKeyword = (keyword) => {
@@ -151,30 +164,33 @@ const Header = (props) => {
 
   const addFix = () => {
     setSearchResult(true);
-    document.querySelector(".Typeahead-menu").classList.add("is-open");
+    document.querySelector(".Typeahead-menu")?.classList.add("is-open");
     document.body.classList.add("offcanvas");
   };
 
   const removeFix = () => {
     setSearchResult(false);
     setsearchValue("");
-    document.querySelector(".Typeahead-menu").classList.remove("is-open");
+    document.querySelector(".Typeahead-menu")?.classList.remove("is-open");
     document.body.classList.remove("offcanvas");
   };
 
   const checkSearchResultEmpty = (items) => {
     if (!items.length) {
       setSearchResultEmpty(true);
-      document.querySelector(".empty-menu").classList.add("is-open");
+      document.querySelector(".empty-menu")?.classList.add("is-open");
     } else {
       setSearchResultEmpty(false);
-      document.querySelector(".empty-menu").classList.remove("is-open");
+      document.querySelector(".empty-menu")?.classList.remove("is-open");
     }
   };
+
   const openCloseSidebar = (sidebartoggle) => {
     var isOpen = false;
 
-    const mainMenuUl = [...document.querySelector(".iconMenu-bar").children];
+    const mainMenuUl = [
+      ...(document.querySelector(".iconMenu-bar")?.children || []),
+    ];
 
     mainMenuUl.map((item) => {
       if (item.classList.value.includes("open")) {
@@ -187,45 +203,36 @@ const Header = (props) => {
       setSidebar("iconbar-second-close");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.remove("iconbar-mainmenu-close");
+        ?.classList.remove("iconbar-mainmenu-close");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.add("iconbar-second-close");
-      // } else if (sidebartoggle === "iconbar-mainmenu-close") {
-      //   setSidebar("iconbar-second-close");
-      //   document
-      //     .querySelector(".iconsidebar-menu")
-      //     .classList.add("iconbar-second-close");
-      //   document
-      //     .querySelector(".iconsidebar-menu")
-      //     .classList.remove("iconbar-mainmenu-close");
+        ?.classList.add("iconbar-second-close");
     } else if (isOpen && sidebartoggle === "iconbar-second-close") {
       setSidebar("iconsidebar-menu");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.remove("iconbar-second-close");
+        ?.classList.remove("iconbar-second-close");
     } else if (!isOpen && sidebartoggle === "iconbar-second-close") {
       setSidebar("iconsidebar-menu");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.add("iconbar-mainmenu-close");
+        ?.classList.add("iconbar-mainmenu-close");
       document
         .querySelector(".iconsidebar-menu")
-        .classList.remove("iconbar-second-close");
+        ?.classList.remove("iconbar-second-close");
     }
   };
 
   const showRightSidebar = () => {
     if (rightSidebar) {
       setRightSidebar(!rightSidebar);
-      document.querySelector(".right-sidebar").classList.add("show");
+      document.querySelector(".right-sidebar")?.classList.add("show");
     } else {
       setRightSidebar(!rightSidebar);
-      document.querySelector(".right-sidebar").classList.remove("show");
+      document.querySelector(".right-sidebar")?.classList.remove("show");
     }
   };
 
-  //full screen function
   const goFull = () => {
     if (
       (document.fullScreenElement && document.fullScreenElement !== null) ||
@@ -254,30 +261,31 @@ const Header = (props) => {
   const Navmenuhideandshow = () => {
     if (navmenu) {
       setNavmenu(!navmenu);
-      document.querySelector(".nav-menus").classList.add("open");
+      document.querySelector(".nav-menus")?.classList.add("open");
     } else {
       setNavmenu(!navmenu);
-      document.querySelector(".nav-menus").classList.remove("open");
+      document.querySelector(".nav-menus")?.classList.remove("open");
     }
   };
 
   const openCloseSearch = () => {
     if (searchinput) {
       setSearchinput(!searchinput);
-      document.querySelector(".Typeahead-input").classList.add("open");
+      document.querySelector(".Typeahead-input")?.classList.add("open");
     } else {
       setSearchinput(!searchinput);
-      document.querySelector(".Typeahead-input").classList.remove("open");
-      document.querySelector(".Typeahead-menu").classList.remove("is-open");
+      document.querySelector(".Typeahead-input")?.classList.remove("open");
+      document.querySelector(".Typeahead-menu")?.classList.remove("is-open");
     }
   };
 
   const [UnreadesMassegesCount, setUnreadesMassegesCount] = useState(null);
   const AdminData = JSON.parse(localStorage.getItem("AdminData"));
-  const adminId = AdminData[0]?.admin_id;
+  const adminId = AdminData?.[0]?.admin_id;
 
   useEffect(() => {
-    // Fetch initial unseen messages
+    if (!adminId) return;
+
     const fetchUnseenMessages = async () => {
       try {
         const response = await axios.get(
@@ -291,18 +299,16 @@ const Header = (props) => {
 
     fetchUnseenMessages();
 
-    // Listen for new unseen messages
     socket.on("newUnseenMessage", ({ groupId, chatId }) => {
       console.log("New unseen message in group:", groupId, "chat:", chatId);
-      fetchUnseenMessages(); // Refresh the list
+      fetchUnseenMessages();
     });
 
-    // Listen for updates to the unseen messages count
     socket.on(
       "unseenMessagesCount",
       ({ recipientId, recipientRole, totalCount, details }) => {
-        if (recipientId === adminId && recipientRole === AdminData[0].type) {
-          setUnreadesMassegesCount(totalCount); // Update the list
+        if (recipientId === adminId && recipientRole === AdminData?.[0]?.type) {
+          setUnreadesMassegesCount(totalCount);
         }
       }
     );
@@ -339,6 +345,9 @@ const Header = (props) => {
         </div>
         <div className="nav-right col pull-right right-menu">
           <ul className="nav-menus">
+            {/* Push Notifications Indicator */}
+
+
             <div
               style={{
                 display: "flex",
@@ -347,9 +356,9 @@ const Header = (props) => {
             >
               Unread
               <i
-                class="fa fa-bell fa-2x"
+                className="fa fa-bell fa-2x"
                 aria-hidden="true"
-                style={{
+                style={{ 
                   color: "orangered",
                   cursor: "pointer",
                   position: "relative",
@@ -357,7 +366,6 @@ const Header = (props) => {
                 onClick={() =>
                   navigate(`${process.env.PUBLIC_URL}/unReadMasseges`)
                 }
-                color="oranged"
               >
                 <span
                   style={{
@@ -378,7 +386,7 @@ const Header = (props) => {
                   </p>
                 </span>
               </i>
-              Masseges
+              Messages
             </div>
 
             <li></li>
@@ -393,34 +401,10 @@ const Header = (props) => {
               </span>
               <ul className="onhover-show-div profile-dropdown">
                 <li className="gradient-primary">
-                  <h5 className="f-w-600 mb-0">{AdminData[0]?.name}</h5>
-                  <span>{AdminData[0]?.type}</span>
+                  <h5 className="f-w-600 mb-0">{AdminData?.[0]?.name}</h5>
+                  <span>{AdminData?.[0]?.type}</span>
                 </li>
-                {/* <li>
-                  <Link to={`${process.env.PUBLIC_URL}/users/user-profile`}>
-                    <User />
-                    Profile
-                  </Link>
-                </li>
-                <li>
-                  <Link to={`${process.env.PUBLIC_URL}/appnew/email-app`}>
-                    <MessageSquare />
-                    Inbox
-                  </Link>
-                </li> */}
-                {/* <li>
-                  <Link to={`${process.env.PUBLIC_URL}/appnew/todo-app`}>
-                    <FileText />
-                    Taskboard
-                  </Link>
-                </li>
-                <li>
-                  <Link to={`${process.env.PUBLIC_URL}/users/user-edit`}>
-                    <Settings />
-                    Settings
-                  </Link>
-                </li> */}
-                <li onClick={logOuts}>
+                <li onClick={logOuts} style={{ cursor: "pointer" }}>
                   <LogOut />
                   Logout
                 </li>

@@ -1,8 +1,10 @@
+// src/camp-app/camp-pages/Login/Login.jsx
 import React, { useState, useEffect } from "react";
 import "./style.css";
 import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
 import { toast } from "react-toastify";
+import { useNotification } from "../../../context/NotificationContext";
 
 const Login = () => {
   const [LoginData, setLoginData] = useState({
@@ -12,44 +14,45 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [deviceToken, setDeviceToken] = useState(null);
 
-  // Generate or retrieve device token
+  // Get notification context
+  const notification = useNotification();
+
+  // Generate device token
   useEffect(() => {
-    const getDeviceToken = () => {
-      // Check if device token already exists in localStorage
-      let token = localStorage.getItem("device_serial");
-
-      if (!token) {
-        // Generate new device token
-        token = generateDeviceToken();
-        // Store it in localStorage
-        localStorage.setItem("device_serial", token);
-      }
-
-      setDeviceToken(token);
-    };
-
-    getDeviceToken();
+    let token = localStorage.getItem("device_serial");
+    if (!token) {
+      const timestamp = new Date().getTime();
+      const random = Math.random().toString(36).substring(2, 15);
+      token = `device-${timestamp}-${random}`;
+      localStorage.setItem("device_serial", token);
+    }
+    setDeviceToken(token);
   }, []);
 
-  // Generate unique device token
-  const generateDeviceToken = () => {
-    // Method 1: UUID-like token
-    const timestamp = new Date().getTime();
-    const random = Math.random().toString(36).substring(2, 15);
-    const userAgent = navigator.userAgent;
-    const screenResolution = `${window.screen.width}x${window.screen.height}`;
+  // Request FCM token before login
+  const requestFCMTokenBeforeLogin = async () => {
+    if (!notification.isSupported) {
+      console.log("⚠️ Notifications not supported");
+      return null;
+    }
 
-    // Create a more unique identifier
-    const uniqueString = `${timestamp}-${random}-${userAgent}-${screenResolution}`;
+    try {
+      console.log("🔔 Requesting FCM token before login...");
+      const token = await notification.getFCMToken();
 
-    // Simple hash function or just return a UUID-like string
-    return `device-${timestamp}-${random}-${Math.random()
-      .toString(36)
-      .substring(2, 9)}`;
+      if (token) {
+        console.log("✅ FCM Token obtained for login");
+        return token;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("❌ FCM token request failed:", error);
+      return null;
+    }
   };
 
   const handelLogin = async () => {
-    // Basic validation
     if (!LoginData?.email || !LoginData?.password) {
       toast.error("Please enter both email and password");
       return;
@@ -62,26 +65,65 @@ const Login = () => {
 
     setLoading(true);
 
-    const dataSend = {
-      email: LoginData?.email,
-      password: LoginData?.password,
-      device_serial: deviceToken, // Include device token
-    };
-
     try {
+      // Get FCM token (optional - don't block login)
+      let currentFcmToken = localStorage.getItem("fcm_token");
+
+      if (!currentFcmToken && notification.isSupported) {
+        const toastId = toast.info("Setting up notifications...", {
+          autoClose: false,
+        });
+
+        currentFcmToken = await requestFCMTokenBeforeLogin();
+
+        toast.dismiss(toastId);
+      }
+
+      // Login request - include FCM token
+      const dataSend = {
+        email: LoginData.email,
+        password: LoginData.password,
+        device_serial: deviceToken,
+        fcm_token: currentFcmToken || null,
+      };
+
+      console.log("📤 Logging in with data:", {
+        ...dataSend,
+        password: "***",
+        fcm_token: currentFcmToken
+          ? currentFcmToken.substring(0, 20) + "..."
+          : null,
+      });
+
       const res = await axios.post(
         BASE_URL + `/admin/permissions/login.php`,
         JSON.stringify(dataSend)
       );
 
-      console.log(res);
-
       if (res.data.status === "success") {
         const userData = res.data.message;
 
-        toast.success("Logged in successfully");
+        // Store admin data first
         localStorage.setItem("AdminData", JSON.stringify(userData));
-        window.location.reload();
+
+        // If FCM token exists, also save it separately to server
+        if (currentFcmToken && userData && userData.length > 0) {
+          const adminId = userData[0]?.id || userData[0]?.admin_id;
+          if (adminId) {
+            // Save FCM token to server
+            await notification.saveFcmTokenToServer(currentFcmToken, adminId);
+          }
+        }
+
+        if (currentFcmToken) {
+          toast.success("✅ Logged in with notifications enabled!");
+        } else {
+          toast.success("✅ Logged in successfully");
+        }
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
         toast.error(res.data.message);
       }
@@ -93,9 +135,8 @@ const Login = () => {
     }
   };
 
-  // Handle Enter key press
   const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !loading) {
       handelLogin();
     }
   };
@@ -113,47 +154,50 @@ const Login = () => {
             We're excited to see you back. Log in to access your dashboard and
             stay connected.
           </p>
+
           <div className="form_field">
             <label className="form_label">Admin Email</label>
             <input
               type="email"
               className="form_input"
               value={LoginData?.email || ""}
-              onChange={(e) => {
-                setLoginData({
-                  ...LoginData,
-                  email: e.target.value,
-                });
-              }}
+              onChange={(e) =>
+                setLoginData({ ...LoginData, email: e.target.value })
+              }
               onKeyPress={handleKeyPress}
               disabled={loading}
               placeholder="Enter your email"
             />
           </div>
+
           <div className="form_field">
             <label className="form_label">Admin Password</label>
             <input
               type="password"
               className="form_input"
               value={LoginData?.password || ""}
-              onChange={(e) => {
-                setLoginData({
-                  ...LoginData,
-                  password: e.target.value,
-                });
-              }}
+              onChange={(e) =>
+                setLoginData({ ...LoginData, password: e.target.value })
+              }
               onKeyPress={handleKeyPress}
               disabled={loading}
               placeholder="Enter your password"
             />
           </div>
+
           <button
-            className="btn btn-primary"
-            style={{ marginTop: "10px" }}
+            className="btn btn-primary login-btn"
             onClick={handelLogin}
             disabled={loading}
           >
-            {loading ? "Logging in..." : "Log in"}
+            {loading ? (
+              <>
+                <span className="spinner"></span>
+                {"Logging in..."}
+              </>
+            ) : (
+              "Log in"
+            )}
           </button>
         </div>
       </div>

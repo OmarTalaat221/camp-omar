@@ -492,7 +492,6 @@ const StudentProfile = () => {
       key: "x",
       render: (text, row) => (
         <>
-
           <Button
             // type="primary"
             style={{ marginRight: "10px" }}
@@ -1043,7 +1042,7 @@ const StudentProfile = () => {
 
         <div className="form_field">
           <label className="form_label">Note Text </label>
-          <input
+          <textarea
             type="text"
             className="form_input"
             dir={textDirection}
@@ -1055,6 +1054,7 @@ const StudentProfile = () => {
                 Text: value,
               });
             }}
+            rows={5}
           />
         </div>
       </Modal>

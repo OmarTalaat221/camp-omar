@@ -115,7 +115,6 @@ export default function ListStudents() {
     });
   };
 
-  // ✅ UPDATED: Handle reset - removes param from URL
   const handleReset = (dataIndex) => {
     const params = new URLSearchParams(searchParams);
     params.delete(dataIndex);
@@ -1129,12 +1128,12 @@ export default function ListStudents() {
               {paymentMode == "assign_now" || paymentMode == "assign_later"
                 ? packages.map((pkg) => (
                     <Option key={pkg.package_id} value={pkg.package_id}>
-                      {pkg.num_of_levels} - {pkg.price}
+                      {pkg?.title} - {pkg.num_of_levels} - {pkg.price}
                     </Option>
                   ))
                 : packagesStudent?.map((pkg) => (
                     <Option key={pkg.package_id} value={pkg.package_id}>
-                      {pkg.num_of_levels} - {pkg.price}
+                      {pkg?.title} - {pkg.num_of_levels} - {pkg.price}
                     </Option>
                   ))}
             </Select>

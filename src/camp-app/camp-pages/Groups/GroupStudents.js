@@ -323,7 +323,7 @@ const GroupStudents = () => {
 
         <div className="form_field">
           <label className="form_label">Note Text </label>
-          <input
+          <textarea
             type="text"
             className="form_input"
             dir={textDirection}
@@ -335,6 +335,7 @@ const GroupStudents = () => {
                 Text: value,
               });
             }}
+            rows={5}
           />
         </div>
       </Modal>
