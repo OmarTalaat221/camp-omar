@@ -60,7 +60,7 @@ const BranchesList = () => {
                 //   );
                 // }}
               >
-                Branche students
+                Branch students
               </Link>
             ),
           },
@@ -77,7 +77,7 @@ const BranchesList = () => {
                   // );
                 }}
               >
-                Branche roundes
+                Branch Rounds
               </Link>
             ),
           },

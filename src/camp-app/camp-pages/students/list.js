@@ -14,7 +14,7 @@ import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
 import { Option } from "antd/es/mentions";
 import { toast } from "react-toastify";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { BsSearch } from "react-icons/bs";
 import "./style.css";
@@ -311,13 +311,21 @@ export default function ListStudents() {
           >
             Update Group
           </Button>
-          <Button
-            onClick={() =>
-              navigate(`/students/list/${row?.student_id}/profile`)
-            }
-          >
-            Profile
-          </Button>
+          <Link to={`/students/list/${row?.student_id}/profile`}>
+            <Button
+              style={{ margin: "0px 10px" }}
+              onClick={(e) => {
+                if (e.ctrlKey || e.metaKey) {
+                  return;
+                }
+                e.preventDefault();
+
+                navigate(`/students/list/${row?.student_id}/profile`);
+              }}
+            >
+              Profile
+            </Button>
+          </Link>
           <Button
             onClick={() => {
               if (

@@ -49,6 +49,7 @@ import Voices from "../camp-app/camp-pages/Voices/Voices";
 import BranchStudents from "../camp-app/camp-pages/Branches/BranchStudents";
 import UpgradeStudentRound from "../camp-app/camp-pages/Roundes/UpgradeStudentRound";
 import GroupInstructions from "../camp-app/camp-pages/Instructions/instructions";
+import UpgradeRounds from "../camp-app/camp-pages/Roundes/UpgradeRounds";
 
 export const AdminData = JSON.parse(localStorage.getItem("AdminData"));
 
@@ -67,12 +68,11 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/teckets`,
           Component: <Teckets />,
         },
-          {
+        {
           path: `${process.env.PUBLIC_URL}/instructions`,
           Component: <GroupInstructions />,
         },
         {
-          
           path: `${process.env.PUBLIC_URL}/teckets/:id`,
           Component: <TeketDetails />,
         },
@@ -207,6 +207,10 @@ export const routes =
           Component: <UpgradeStudentRound />,
         },
         {
+          path: `${process.env.PUBLIC_URL}/roundes/:round_id/upgrade-round`,
+          Component: <UpgradeRounds />,
+        },
+        {
           path: `${process.env.PUBLIC_URL}groups/:group_id/students/:student_id/chat`,
           Component: <Chat />,
         },
@@ -282,7 +286,7 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/teckets/:id`,
           Component: <TeketDetails />,
         },
-          {
+        {
           path: `${process.env.PUBLIC_URL}/instructions`,
           Component: <GroupInstructions />,
         },
@@ -688,11 +692,11 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/teckets`,
           Component: <Teckets />,
         },
-  {
+        {
           path: `${process.env.PUBLIC_URL}/instructions`,
           Component: <GroupInstructions />,
         },
-        
+
         {
           path: `${process.env.PUBLIC_URL}/teckets/:id`,
           Component: <TeketDetails />,

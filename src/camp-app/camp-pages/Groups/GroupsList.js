@@ -1365,7 +1365,7 @@ const GroupsList = () => {
                   )}
                 </div>
               </div>
-              <div className="card-body">
+              <div className="card-body bg-red">
                 <Table
                   loading={loading}
                   scroll={{
@@ -1384,6 +1384,10 @@ const GroupsList = () => {
                       `Showing ${range[0]}-${range[1]} of ${total} groups`, // ✅ Better display
                   }}
                   onChange={handleTableChange}
+                  rowClassName={(record) => {
+                    if (record.finished == "1") return "finished-row";
+                    return "";
+                  }}
                 />
               </div>
             </div>

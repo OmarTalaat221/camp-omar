@@ -1,15 +1,30 @@
-import { Table } from "antd";
+import { Table, Button, Modal, DatePicker, Input } from "antd";
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
-import './style.css';
+import { FaFileExcel, FaEye } from "react-icons/fa6";
+import { BsSearch } from "react-icons/bs";
+import { toast } from "react-toastify";
+import ExcelJS from "exceljs";
+import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+import "./style.css";
+
+dayjs.extend(isBetween);
+
+const { RangePicker } = DatePicker;
 
 const BranchDetails = () => {
   const { branch_id } = useParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [Branches, setBranches] = useState([]);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [dateRange, setDateRange] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   function handleGetBranches() {
     const dataSend = {
@@ -32,6 +47,237 @@ const BranchDetails = () => {
   useEffect(() => {
     handleGetBranches();
   }, []);
+
+  // Search handlers
+  const handleSearch = (value, dataIndex) => {
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set(dataIndex, value);
+    } else {
+      params.delete(dataIndex);
+    }
+    setSearchParams(params);
+  };
+
+  const handleReset = (dataIndex) => {
+    const params = new URLSearchParams(searchParams);
+    params.delete(dataIndex);
+    setSearchParams(params);
+  };
+
+  const getColumnSearchProps = (dataIndex) => {
+    const currentValue = searchParams.get(dataIndex) || "";
+
+    return {
+      filterDropdown: ({
+        setSelectedKeys,
+        selectedKeys,
+        confirm,
+        clearFilters,
+      }) => {
+        return (
+          <div style={{ padding: 8 }}>
+            <Input
+              placeholder={`Search ${dataIndex}`}
+              defaultValue={currentValue}
+              onChange={(e) => {
+                setSelectedKeys(e.target.value ? [e.target.value] : []);
+              }}
+              onPressEnter={() => {
+                handleSearch(selectedKeys[0] || "", dataIndex);
+              }}
+              style={{ marginBottom: 8, display: "block" }}
+            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <Button
+                type="primary"
+                onClick={() => handleSearch(selectedKeys[0] || "", dataIndex)}
+                icon={<BsSearch />}
+                size="small"
+                style={{ width: 90 }}
+              >
+                Search
+              </Button>
+              <Button
+                onClick={() => {
+                  setSelectedKeys([]);
+                  handleReset(dataIndex);
+                }}
+                size="small"
+                style={{ width: 90 }}
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+        );
+      },
+      filterIcon: (filtered) => (
+        <BsSearch
+          style={{
+            color: currentValue ? "#1890ff" : undefined,
+          }}
+        />
+      ),
+      filtered: !!currentValue,
+    };
+  };
+
+  // Filter data based on search params
+  const getFilteredData = (data) => {
+    if (!data || !Array.isArray(data)) return [];
+
+    let filtered = [...data];
+
+    searchParams.forEach((value, key) => {
+      filtered = filtered.filter((item) => {
+        const itemValue = item[key]?.toString().toLowerCase() || "";
+        return itemValue.includes(value.toLowerCase());
+      });
+    });
+
+    return filtered;
+  };
+
+  // Filter data by date range
+  const filterByDateRange = (data, dateField, startDate, endDate) => {
+    if (!data || !Array.isArray(data)) return [];
+
+    return data.filter((item) => {
+      const itemDate = dayjs(item[dateField]);
+      return (
+        itemDate.isSame(startDate, "day") ||
+        itemDate.isSame(endDate, "day") ||
+        itemDate.isBetween(startDate, endDate, "day")
+      );
+    });
+  };
+
+  // Export Depts to Excel
+  const exportDeptsToExcel = async () => {
+    try {
+      if (!dateRange || dateRange.length !== 2) {
+        toast.error("Please select a date range");
+        return;
+      }
+
+      setExporting(true);
+
+      const [startDate, endDate] = dateRange;
+
+      // Filter depts by date range
+      const filteredDepts = filterByDateRange(
+        Branches[0]?.branch_depts,
+        "date",
+        startDate,
+        endDate
+      );
+
+      // Check if there's any data
+      if (filteredDepts.length === 0) {
+        toast.error("No depts found in the selected date range");
+        setExporting(false);
+        return;
+      }
+
+      // Create workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Branch Depts");
+
+      // Get all unique keys from the data to create dynamic columns
+      const allKeys = new Set();
+      filteredDepts.forEach((item) => {
+        Object.keys(item).forEach((key) => allKeys.add(key));
+      });
+
+      // Convert to array and create columns
+      const columns = Array.from(allKeys).map((key) => {
+        // Format column header (capitalize and replace underscores)
+        const header = key
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+
+        return {
+          header: header,
+          key: key,
+          width: 20,
+        };
+      });
+
+      worksheet.columns = columns;
+
+      // Style the header row
+      worksheet.getRow(1).font = {
+        bold: true,
+        color: { argb: "FFFFFFFF" },
+      };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF295557" },
+      };
+      worksheet.getRow(1).alignment = {
+        vertical: "middle",
+        horizontal: "center",
+      };
+
+      // Add data rows
+      filteredDepts.forEach((item) => {
+        worksheet.addRow(item);
+      });
+
+      // Style data rows
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+          row.alignment = { vertical: "middle", wrapText: true };
+          row.eachCell((cell) => {
+            cell.border = {
+              top: { style: "thin" },
+              left: { style: "thin" },
+              bottom: { style: "thin" },
+              right: { style: "thin" },
+            };
+          });
+        }
+      });
+
+      // Auto-fit columns
+      worksheet.columns.forEach((column) => {
+        let maxLength = 0;
+        column.eachCell({ includeEmpty: true }, (cell) => {
+          const columnLength = cell.value ? cell.value.toString().length : 10;
+          if (columnLength > maxLength) {
+            maxLength = columnLength;
+          }
+        });
+        column.width = maxLength < 10 ? 10 : maxLength + 2;
+      });
+
+      // Generate and download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Branch_Depts_${startDate.format(
+        "YYYY-MM-DD"
+      )}_to_${endDate.format("YYYY-MM-DD")}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Excel file exported successfully!");
+      setShowDateModal(false);
+      setDateRange(null);
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast.error("Failed to export Excel file");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const columns = [
     {
@@ -112,38 +358,68 @@ const BranchDetails = () => {
       title: "#",
       dataIndex: "student_id",
       key: "student_id",
+      ...getColumnSearchProps("student_id"),
     },
     {
       title: "Client Name",
       dataIndex: "name",
       key: "name",
+      ...getColumnSearchProps("name"),
     },
     {
-      title: "phone",
+      title: "Phone",
       dataIndex: "phone",
       key: "phone",
+      ...getColumnSearchProps("phone"),
     },
     {
-      title: "payed",
+      title: "Payed",
       dataIndex: "payed",
       key: "payed",
+      ...getColumnSearchProps("payed"),
     },
     {
-      title: "total price",
+      title: "Total Price",
       dataIndex: "total_price",
       key: "total_price",
+      ...getColumnSearchProps("total_price"),
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
+      ...getColumnSearchProps("status"),
     },
     {
-      title: "date",
+      title: "Date",
       dataIndex: "date",
       key: "date",
+      ...getColumnSearchProps("date"),
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (text, record) => (
+        <Button
+          type="primary"
+          icon={<FaEye />}
+          onClick={() =>
+            window.open(
+              `/students/list/${record?.student_id}/profile`,
+              "_blank"
+            )
+          }
+          style={{
+            backgroundColor: "#295557",
+            borderColor: "#295557",
+          }}
+        >
+          Profile
+        </Button>
+      ),
     },
   ];
+
   return (
     <>
       <Breadcrumbs parent="Branches" title="Branches List" />
@@ -153,7 +429,13 @@ const BranchDetails = () => {
             <div className="card">
               <div
                 className="card-header"
-                style={{ display: "flex", flexDirection:"row", justifyContent: "space-between" }}
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
               >
                 <h4>
                   <b> total students:</b>
@@ -210,8 +492,16 @@ const BranchDetails = () => {
               </div>
 
               <div className="card">
-                <div className="card-header">
-                  <h5>Branch depts</h5>
+                <div className="card-header d-flex justify-content-between">
+                  <h5>Branch Depts</h5>
+                  <Button
+                    type="primary"
+                    icon={<FaFileExcel />}
+                    onClick={() => setShowDateModal(true)}
+                    style={{ backgroundColor: "#217346" }}
+                  >
+                    Export Depts
+                  </Button>
                 </div>
                 <div className="card-body">
                   <Table
@@ -219,7 +509,7 @@ const BranchDetails = () => {
                       x: "max-content",
                     }}
                     columns={Deptscolumns}
-                    dataSource={Branches[0]?.branch_depts}
+                    dataSource={getFilteredData(Branches[0]?.branch_depts)}
                   />
                 </div>
               </div>
@@ -227,6 +517,30 @@ const BranchDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Date Range Modal */}
+      <Modal
+        title="Select Date Range for Depts Export"
+        open={showDateModal}
+        onOk={exportDeptsToExcel}
+        onCancel={() => {
+          setShowDateModal(false);
+          setDateRange(null);
+        }}
+        okText="Export"
+        cancelText="Cancel"
+        confirmLoading={exporting}
+      >
+        <div className="mb-3">
+          <label className="form-label mb-2">Select Date Range:</label>
+          <RangePicker
+            style={{ width: "100%" }}
+            value={dateRange}
+            onChange={setDateRange}
+            format="YYYY-MM-DD"
+          />
+        </div>
+      </Modal>
     </>
   );
 };

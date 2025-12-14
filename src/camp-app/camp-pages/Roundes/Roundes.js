@@ -167,14 +167,25 @@ export const Roundes = () => {
             ),
           },
 
+          // {
+          //   key: 10,
+          //   label: (
+          //     <Link
+          //       to={`${process.env.PUBLIC_URL}/roundes/${row.round_id}/upgrade`}
+          //       className="btn btn-primary text-white"
+          //     >
+          //       Upgrade Students
+          //     </Link>
+          //   ),
+          // },
           {
-            key: 10,
+            key: 11,
             label: (
               <Link
-                to={`${process.env.PUBLIC_URL}/roundes/${row.round_id}/upgrade`}
+                to={`${process.env.PUBLIC_URL}/roundes/${row.round_id}/upgrade-round`}
                 className="btn btn-primary text-white"
               >
-                Upgrade Students
+                Upgrade Rounds
               </Link>
             ),
           },
@@ -333,7 +344,7 @@ export const Roundes = () => {
                   columns={columns}
                   dataSource={Rounds}
                   rowClassName={(record) =>
-                    record.finish == 1 ? "row_highlight" : ""
+                    record.finish == "1" ? "finished-row" : ""
                   }
                 />
               </div>

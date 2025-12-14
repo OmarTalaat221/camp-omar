@@ -291,6 +291,7 @@ const Header = (props) => {
         const response = await axios.get(
           `https://camp-coding.tech/campForEnglishChat/messages/unseen/${adminId}/admin`
         );
+        console.log(response);
         setUnreadesMassegesCount(response.data.total_count);
       } catch (error) {
         console.error("Failed to fetch unseen messages:", error);
@@ -347,7 +348,6 @@ const Header = (props) => {
           <ul className="nav-menus">
             {/* Push Notifications Indicator */}
 
-
             <div
               style={{
                 display: "flex",
@@ -358,7 +358,7 @@ const Header = (props) => {
               <i
                 className="fa fa-bell fa-2x"
                 aria-hidden="true"
-                style={{ 
+                style={{
                   color: "orangered",
                   cursor: "pointer",
                   position: "relative",

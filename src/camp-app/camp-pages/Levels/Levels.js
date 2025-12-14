@@ -328,7 +328,6 @@ export default function Levels() {
               to={`${process.env.PUBLIC_URL}/levels/${row?.level_id}/students`}
             >
               <Button
-                style={{ margin: "0px 10px" }}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     return;

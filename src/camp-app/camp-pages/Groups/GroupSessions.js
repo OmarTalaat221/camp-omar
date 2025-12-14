@@ -9,6 +9,7 @@ import { FaEllipsisVertical } from "react-icons/fa6";
 import { toast } from "react-toastify";
 import { set } from "lodash";
 import { AdminData } from "../../../routes/layouts-routes";
+import dayjs from "dayjs";
 
 const GroupSessions = () => {
   const { group_id, round_id, branch_id } = useParams();
@@ -314,6 +315,16 @@ const GroupSessions = () => {
                   }}
                   columns={columns}
                   dataSource={GroupSessions}
+                  rowClassName={(record) => {
+                    const end = dayjs(record.end_date);
+
+                    if (record?.session_id == 1427) {
+                      console.log(dayjs().format("YYYY-MM-DD"), "now");
+                      console.log(end.format("YYYY-MM-DD"), "end");
+                    }
+
+                    return end.isBefore(dayjs(), "day") ? "finished-row" : "";
+                  }}
                 />
               </div>
             </div>
