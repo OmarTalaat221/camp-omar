@@ -50,6 +50,7 @@ import BranchStudents from "../camp-app/camp-pages/Branches/BranchStudents";
 import UpgradeStudentRound from "../camp-app/camp-pages/Roundes/UpgradeStudentRound";
 import GroupInstructions from "../camp-app/camp-pages/Instructions/instructions";
 import UpgradeRounds from "../camp-app/camp-pages/Roundes/UpgradeRounds";
+import PlaceRate from "../camp-app/camp-pages/PlaceRate/PlaceRate";
 
 export const AdminData = JSON.parse(localStorage.getItem("AdminData"));
 
@@ -267,6 +268,10 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/forms_students_repsonse/:formId/:levelId`,
           Component: <FormsStudentRespons />,
         },
+        {
+          path: `${process.env.PUBLIC_URL}/place-rate`,
+          Component: <PlaceRate />,
+        },
       ]
     : AdminData?.length > 0 && AdminData[0]?.type == "employee"
     ? [
@@ -472,6 +477,10 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/forms_students_repsonse/:formId/:levelId`,
           Component: <FormsStudentRespons />,
         },
+        {
+          path: `${process.env.PUBLIC_URL}/place-rate`,
+          Component: <PlaceRate />,
+        },
       ]
     : AdminData?.length > 0 && AdminData[0]?.type == "superVisor"
     ? [
@@ -676,6 +685,10 @@ export const routes =
         {
           path: `${process.env.PUBLIC_URL}/forms_students_repsonse/:formId/:levelId`,
           Component: <FormsStudentRespons />,
+        },
+        {
+          path: `${process.env.PUBLIC_URL}/place-rate`,
+          Component: <PlaceRate />,
         },
       ]
     : AdminData?.length > 0 && AdminData[0]?.type == "instructor"
@@ -883,6 +896,10 @@ export const routes =
           path: `${process.env.PUBLIC_URL}/forms_students_repsonse/:formId/:levelId`,
           Component: <FormsStudentRespons />,
         },
+        {
+          path: `${process.env.PUBLIC_URL}/place-rate`,
+          Component: <PlaceRate />,
+        },
       ]
     : !AdminData
     ? [
@@ -891,7 +908,7 @@ export const routes =
           Component: <Login />,
         },
       ]
-    : AdminData?.length > 0 // Any other logged-in user type
+    : AdminData?.length > 0
     ? [
         {
           path: "*",

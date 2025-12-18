@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import { Button, Modal, Select, Table, Spin } from "antd";
 import { BASE_URL } from "../../../Api/baseUrl";
@@ -11,9 +11,6 @@ import "./style.css";
 const { Option } = Select;
 
 const CustomeRecept = React.forwardRef(({ data, recordData }, ref) => {
-  console.log(data);
-  console.log(recordData);
-
   return (
     <div
       ref={ref}
@@ -36,10 +33,10 @@ const CustomeRecept = React.forwardRef(({ data, recordData }, ref) => {
       >
         <div>
           <p>
-            <strong>Invoice:</strong> {recordData.payment_id}
+            <strong>Invoice:</strong> {recordData?.payment_id}
           </p>
           <p>
-            <strong>Date:</strong> {recordData.date}
+            <strong>Date:</strong> {recordData?.date}
           </p>
         </div>
         <div>
@@ -120,30 +117,81 @@ const tdStyle = {
   textAlign: "center",
 };
 
+// Initial states for modals
+const INITIAL_NOTE_DATA = {
+  student_id: null,
+  Type: null,
+  Text: null,
+  admin_id: null,
+};
+
+const INITIAL_EDIT_LEVEL_GROUP_DATA = {
+  subscription_id: null,
+  level_id: null,
+  group_id: null,
+};
+
+const INITIAL_UPDATE_INVOICE_DATA = {
+  payment_id: null,
+  payed: "",
+  date: "",
+};
+
+const INITIAL_UPDATE_DATE_DATA = {
+  payment_id: null,
+  date: "",
+};
+
 const StudentProfile = () => {
   const AdminData = JSON.parse(localStorage.getItem("AdminData"));
   const [StudentData, setStudentData] = useState([]);
   const { student_id } = useParams();
   const printRef = useRef();
   const [printData, setPrintData] = useState(null);
-  const [UpdateInvoice, setUpdateInvoice] = useState(null);
-  const [AddNoteModal, setAddNoteModal] = useState(null);
-  const [StudentNotesModal, setStudentNotesModal] = useState(null);
-  const [RemoveModal, setRemoveModal] = useState(false);
-  const [rowData, setRowData] = useState(false);
   const [textDirection, setTextDirection] = useState("ltr");
 
-  // ✅ NEW: States for Edit Level & Group
-  const [EditLevelGroupModal, setEditLevelGroupModal] = useState(false);
-  const [EditLevelGroupData, setEditLevelGroupData] = useState({
-    subscription_id: null,
-    level_id: null,
-    group_id: null,
-  });
+  // ========== MODAL STATES ==========
+
+  // Update Invoice Modal (Update All)
+  const [isUpdateInvoiceOpen, setIsUpdateInvoiceOpen] = useState(false);
+  const [updateInvoiceData, setUpdateInvoiceData] = useState(
+    INITIAL_UPDATE_INVOICE_DATA
+  );
+  const [updateInvoiceLoading, setUpdateInvoiceLoading] = useState(false);
+
+  // Update Date Only Modal
+  const [isUpdateDateOpen, setIsUpdateDateOpen] = useState(false);
+  const [updateDateData, setUpdateDateData] = useState(
+    INITIAL_UPDATE_DATE_DATA
+  );
+  const [updateDateLoading, setUpdateDateLoading] = useState(false);
+
+  // Add Note Modal
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [addNoteStudentData, setAddNoteStudentData] = useState(null);
+  const [newNoteData, setNewNoteData] = useState(INITIAL_NOTE_DATA);
+  const [addNoteLoading, setAddNoteLoading] = useState(false);
+
+  // Student Notes Modal (if needed)
+  const [isStudentNotesOpen, setIsStudentNotesOpen] = useState(false);
+
+  // Remove from Group Modal
+  const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+  const [removeRowData, setRemoveRowData] = useState(null);
+  const [removeLoading, setRemoveLoading] = useState(false);
+
+  // Edit Level & Group Modal
+  const [isEditLevelGroupOpen, setIsEditLevelGroupOpen] = useState(false);
+  const [editLevelGroupData, setEditLevelGroupData] = useState(
+    INITIAL_EDIT_LEVEL_GROUP_DATA
+  );
+  const [editLevelGroupRowData, setEditLevelGroupRowData] = useState(null);
+  const [updateLevelGroupLoading, setUpdateLevelGroupLoading] = useState(false);
+
+  // Levels and Groups
   const [Levels, setLevels] = useState([]);
   const [Groups, setGroups] = useState([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
-  const [updateLoading, setUpdateLoading] = useState(false);
 
   const detectLanguage = (text) => {
     const arabicPattern = /[\u0600-\u06FF]/;
@@ -156,14 +204,9 @@ const StudentProfile = () => {
     { label: "note", value: "note" },
   ];
 
-  const [NewNoteData, setNewNoteData] = useState({
-    student_id: null,
-    Type: null,
-    Text: null,
-    admin_id: AdminData[0]?.admin_id,
-  });
+  // ========== API CALLS ==========
 
-  function handleGetStudentData() {
+  const handleGetStudentData = useCallback(() => {
     const dataSend = {
       student_id: student_id,
     };
@@ -173,14 +216,14 @@ const StudentProfile = () => {
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setStudentData(res?.data?.message);
         }
-      });
-  }
+      })
+      .catch((e) => console.log(e));
+  }, [student_id]);
 
-  // ✅ NEW: Fetch Levels
-  function handleSelectLevels() {
+  const handleSelectLevels = useCallback(() => {
     axios
       .get(BASE_URL + "/admin/content/select_levels.php")
       .then((res) => {
@@ -189,14 +232,13 @@ const StudentProfile = () => {
         }
       })
       .catch((e) => console.log(e));
-  }
+  }, []);
 
-  // ✅ NEW: Fetch Groups by Admin
-  function handleGetGroups() {
+  const handleGetGroups = useCallback(() => {
     setGroupsLoading(true);
     axios
       .post(BASE_URL + "/admin/groups/select_groups_by_admin.php", {
-        admin_id: AdminData[0]?.admin_id,
+        admin_id: AdminData?.[0]?.admin_id,
       })
       .then((res) => {
         if (res?.data?.status === "success") {
@@ -205,74 +247,297 @@ const StudentProfile = () => {
       })
       .catch((e) => console.log(e))
       .finally(() => setGroupsLoading(false));
-  }
+  }, [AdminData]);
 
-  // ✅ NEW: Handle Level Change - Reset group when level changes
+  const fetchGroupsByLevel = useCallback(
+    async (levelId) => {
+      setGroupsLoading(true);
+      try {
+        const res = await axios.post(
+          BASE_URL + "/admin/groups/select_groups_by_admin.php",
+          {
+            admin_id: AdminData?.[0]?.admin_id,
+          }
+        );
+
+        if (res?.data?.status === "success") {
+          const filteredGroups = res?.data?.message?.filter(
+            (gr) =>
+              gr?.group_levels?.level_id != null &&
+              String(gr.group_levels.level_id) === String(levelId)
+          );
+          setGroups(filteredGroups || []);
+        } else {
+          setGroups([]);
+        }
+      } catch (e) {
+        console.log(e);
+        setGroups([]);
+      } finally {
+        setGroupsLoading(false);
+      }
+    },
+    [AdminData]
+  );
+
+  // ========== MODAL HANDLERS ==========
+
+  // Update Invoice Modal Handlers
+  const openUpdateInvoiceModal = (row) => {
+    setUpdateInvoiceData({
+      payment_id: row?.payment_id,
+      payed: row?.payed || "",
+      date: row?.date || "",
+    });
+    setIsUpdateInvoiceOpen(true);
+  };
+
+  const closeUpdateInvoiceModal = () => {
+    setIsUpdateInvoiceOpen(false);
+    setUpdateInvoiceData(INITIAL_UPDATE_INVOICE_DATA);
+  };
+
+  const handleUpdateInvoice = () => {
+    if (!updateInvoiceData?.date) {
+      toast.error("Please select a date");
+      return;
+    }
+    if (!updateInvoiceData?.payed) {
+      toast.error("Please enter paid amount");
+      return;
+    }
+
+    setUpdateInvoiceLoading(true);
+
+    const dataSend = {
+      payed: updateInvoiceData.payed,
+      admin_id: AdminData?.[0]?.admin_id,
+      date: updateInvoiceData.date,
+      payment_id: updateInvoiceData.payment_id,
+    };
+
+    axios
+      .post(
+        BASE_URL + "/admin/home/update_receipt.php",
+        JSON.stringify(dataSend)
+      )
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          toast.success(res?.data?.message);
+          closeUpdateInvoiceModal();
+          handleGetStudentData();
+        } else {
+          toast.error(res?.data?.message);
+        }
+      })
+      .catch((e) => {
+        console.log(e);
+        toast.error("Error updating invoice");
+      })
+      .finally(() => setUpdateInvoiceLoading(false));
+  };
+
+  // Update Date Only Modal Handlers
+  const openUpdateDateModal = (row) => {
+    setUpdateDateData({
+      payment_id: row?.payment_id,
+      date: row?.date || "",
+    });
+    setIsUpdateDateOpen(true);
+  };
+
+  const closeUpdateDateModal = () => {
+    setIsUpdateDateOpen(false);
+    setUpdateDateData(INITIAL_UPDATE_DATE_DATA);
+  };
+
+  const handleUpdateDateOnly = () => {
+    if (!updateDateData?.date) {
+      toast.error("Please select a date");
+      return;
+    }
+
+    setUpdateDateLoading(true);
+
+    const dataSend = {
+      date: updateDateData.date,
+      payment_id: updateDateData.payment_id,
+    };
+
+    axios
+      .post(
+        BASE_URL + "/admin/home/update_receipt_date.php",
+        JSON.stringify(dataSend)
+      )
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          toast.success(res?.data?.message || "Date updated successfully");
+          closeUpdateDateModal();
+          handleGetStudentData();
+        } else {
+          toast.error(res?.data?.message || "Error updating date");
+        }
+      })
+      .catch((e) => {
+        console.log(e);
+        toast.error("Error updating date");
+      })
+      .finally(() => setUpdateDateLoading(false));
+  };
+
+  // Add Note Modal Handlers
+  const openAddNoteModal = (row) => {
+    setAddNoteStudentData(row);
+    setNewNoteData({
+      ...INITIAL_NOTE_DATA,
+      student_id: row?.student_id,
+      admin_id: AdminData?.[0]?.admin_id,
+    });
+    setTextDirection("ltr");
+    setIsAddNoteOpen(true);
+  };
+
+  const closeAddNoteModal = () => {
+    setIsAddNoteOpen(false);
+    setAddNoteStudentData(null);
+    setNewNoteData(INITIAL_NOTE_DATA);
+    setTextDirection("ltr");
+  };
+
+  const handleAddNote = () => {
+    if (!newNoteData?.Type) {
+      toast.error("Please select a type");
+      return;
+    }
+    if (!newNoteData?.Text) {
+      toast.error("Please enter note text");
+      return;
+    }
+
+    setAddNoteLoading(true);
+
+    const dataSend = {
+      ...newNoteData,
+      student_id: addNoteStudentData?.student_id,
+    };
+
+    axios
+      .post(
+        BASE_URL + "/admin/complains_exceptions/add_complain_exception.php",
+        JSON.stringify(dataSend)
+      )
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          toast.success(res?.data?.message);
+          closeAddNoteModal();
+          handleGetStudentData();
+        } else {
+          toast.error(res?.data?.message);
+        }
+      })
+      .catch((e) => {
+        console.log(e);
+        toast.error("Error adding note");
+      })
+      .finally(() => setAddNoteLoading(false));
+  };
+
+  // Remove from Group Modal Handlers
+  const openRemoveModal = (row) => {
+    setRemoveRowData(row);
+    setIsRemoveModalOpen(true);
+  };
+
+  const closeRemoveModal = () => {
+    setIsRemoveModalOpen(false);
+    setRemoveRowData(null);
+  };
+
+  const handleRemoveFromGroup = () => {
+    if (!removeRowData?.subscription_id) {
+      toast.error("Invalid subscription");
+      return;
+    }
+
+    setRemoveLoading(true);
+
+    const dataSend = {
+      subscription_id: removeRowData.subscription_id,
+    };
+
+    axios
+      .post(
+        BASE_URL + "/admin/subscription/delete_student_group_sub.php",
+        JSON.stringify(dataSend)
+      )
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          toast.success(res?.data?.message);
+          closeRemoveModal();
+          handleGetStudentData();
+        } else {
+          toast.error(res?.data?.message);
+        }
+      })
+      .catch((e) => {
+        console.log(e);
+        toast.error("Error removing from group");
+      })
+      .finally(() => setRemoveLoading(false));
+  };
+
+  // Edit Level & Group Modal Handlers
+  const openEditLevelGroupModal = (row) => {
+    const currentLevelId = row?.level_data?.level_id || row?.level_id;
+    const currentGroupId = row?.group_data?.group_id || row?.group_id;
+
+    setEditLevelGroupRowData(row);
+    setEditLevelGroupData({
+      subscription_id: row?.subscription_id,
+      level_id: currentLevelId,
+      group_id: currentGroupId,
+    });
+    setIsEditLevelGroupOpen(true);
+
+    if (currentLevelId) {
+      fetchGroupsByLevel(currentLevelId);
+    }
+  };
+
+  const closeEditLevelGroupModal = () => {
+    setIsEditLevelGroupOpen(false);
+    setEditLevelGroupData(INITIAL_EDIT_LEVEL_GROUP_DATA);
+    setEditLevelGroupRowData(null);
+  };
+
   const handleLevelChange = (value) => {
     setEditLevelGroupData((prev) => ({
       ...prev,
       level_id: value,
-      group_id: null, // Reset group to empty
+      group_id: null,
     }));
 
-    // Fetch groups for the selected level
     if (value) {
       fetchGroupsByLevel(value);
     }
   };
 
-  // ✅ NEW: Fetch groups filtered by level
-  const fetchGroupsByLevel = async (levelId) => {
-    setGroupsLoading(true);
-    try {
-      const res = await axios.post(
-        BASE_URL + "/admin/groups/select_groups_by_admin.php",
-        {
-          admin_id: AdminData[0]?.admin_id,
-        }
-      );
-
-      if (res?.data?.status === "success") {
-        // Filter groups that match the selected level
-        const filteredGroups = res?.data?.message?.filter(
-          (gr) =>
-            gr?.group_levels?.level_id != null &&
-            String(gr.group_levels.level_id) === String(levelId)
-        );
-        setGroups(filteredGroups || []);
-      } else {
-        setGroups([]);
-      }
-    } catch (e) {
-      console.log(e);
-      setGroups([]);
-    } finally {
-      setGroupsLoading(false);
-    }
-  };
-
-  const filteredGroupOptions = Groups?.filter(
-    (gr) =>
-      gr?.group_levels?.level_id != null &&
-      String(gr.group_levels.level_id) === String(EditLevelGroupData?.level_id)
-  );
-
   const handleUpdateLevelGroup = () => {
-    if (!EditLevelGroupData?.level_id) {
+    if (!editLevelGroupData?.level_id) {
       toast.error("Please select a level");
       return;
     }
-    if (!EditLevelGroupData?.group_id) {
+    if (!editLevelGroupData?.group_id) {
       toast.error("Please select a group");
       return;
     }
 
-    setUpdateLoading(true);
+    setUpdateLevelGroupLoading(true);
 
     const dataSend = {
-      subscription_id: EditLevelGroupData?.subscription_id,
-      level_id: EditLevelGroupData?.level_id,
-      group_id: EditLevelGroupData?.group_id,
+      subscription_id: editLevelGroupData.subscription_id,
+      level_id: editLevelGroupData.level_id,
+      group_id: editLevelGroupData.group_id,
     };
 
     axios
@@ -283,12 +548,7 @@ const StudentProfile = () => {
       .then((res) => {
         if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          setEditLevelGroupModal(false);
-          setEditLevelGroupData({
-            subscription_id: null,
-            level_id: null,
-            group_id: null,
-          });
+          closeEditLevelGroupModal();
           handleGetStudentData();
         } else {
           toast.error(res?.data?.message);
@@ -298,73 +558,32 @@ const StudentProfile = () => {
         console.log(e);
         toast.error("Error updating level and group");
       })
-      .finally(() => setUpdateLoading(false));
+      .finally(() => setUpdateLevelGroupLoading(false));
   };
 
-  const handleOpenEditModal = (row) => {
-    setEditLevelGroupModal(true);
-    setRowData(row);
-
-    const currentLevelId = row?.level_data?.level_id || row?.level_id;
-    const currentGroupId = row?.group_data?.group_id || row?.group_id;
-
-    setEditLevelGroupData({
-      subscription_id: row?.subscription_id,
-      level_id: currentLevelId,
-      group_id: currentGroupId,
-    });
-
-    // Fetch groups for the current level
-    if (currentLevelId) {
-      fetchGroupsByLevel(currentLevelId);
-    }
-  };
-
-  // ✅ NEW: Close Edit Modal and reset
-  const handleCloseEditModal = () => {
-    setEditLevelGroupModal(false);
-    setEditLevelGroupData({
-      subscription_id: null,
-      level_id: null,
-      group_id: null,
-    });
-    setRowData(null);
-  };
-
-  function handelRemoveFromGroup() {
-    const dataSend = {
-      subscription_id: rowData?.subscription_id,
-    };
-    axios
-      .post(
-        BASE_URL + "/admin/subscription/delete_student_group_sub.php",
-        JSON.stringify(dataSend)
-      )
-      .then((res) => {
-        if (res?.data?.status == "success") {
-          toast.success(res?.data?.message);
-          handleGetStudentData();
-          setRemoveModal(false);
-        } else {
-          toast.error(res?.data?.message);
-        }
-      })
-      .catch((e) => console.log(e));
-  }
-
+  // Print Handler
   const handlePrint = (record) => {
     setPrintData(record);
 
     setTimeout(() => {
-      document.getElementById("print-trigger").click();
+      document.getElementById("print-trigger")?.click();
     }, 100);
   };
 
+  // Filter groups by level for dropdown
+  const filteredGroupOptions = Groups?.filter(
+    (gr) =>
+      gr?.group_levels?.level_id != null &&
+      String(gr.group_levels.level_id) === String(editLevelGroupData?.level_id)
+  );
+
   useEffect(() => {
     handleGetStudentData();
-    handleSelectLevels(); // ✅ Fetch levels on mount
-    handleGetGroups(); // ✅ Fetch groups on mount
-  }, []);
+    handleSelectLevels();
+    handleGetGroups();
+  }, [handleGetStudentData, handleSelectLevels, handleGetGroups]);
+
+  // ========== TABLE COLUMNS ==========
 
   const columns = [
     {
@@ -407,21 +626,16 @@ const StudentProfile = () => {
       dataIndex: "level_status",
       key: "level_status",
       render: (text, row) => (
-        <>
-          <>
-            <Button
-              style={{ margin: "0px 10px" }}
-              onClick={() => setAddNoteModal(row)}
-            >
-              Add Complain or exception
-            </Button>
-          </>
-        </>
+        <Button
+          style={{ margin: "0px 10px" }}
+          onClick={() => openAddNoteModal(row)}
+        >
+          Add Complain or exception
+        </Button>
       ),
     },
   ];
 
-  // ✅ UPDATED: Added Edit button to columns_study_history
   const columns_study_history = [
     {
       title: "level_id",
@@ -491,25 +705,25 @@ const StudentProfile = () => {
       dataIndex: "x",
       key: "x",
       render: (text, row) => (
-        <>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+          className="flex items-center gap-2"
+        >
           <Button
-            // type="primary"
             style={{ marginRight: "10px" }}
-            onClick={() => handleOpenEditModal(row)}
+            onClick={() => openEditLevelGroupModal(row)}
           >
             Edit Level & Group
           </Button>
 
-          <Button
-            danger
-            onClick={() => {
-              setRemoveModal(true);
-              setRowData(row);
-            }}
-          >
+          <Button danger onClick={() => openRemoveModal(row)}>
             Remove from group
           </Button>
-        </>
+        </div>
       ),
     },
   ];
@@ -586,15 +800,23 @@ const StudentProfile = () => {
       dataIndex: "action",
       key: "action",
       render: (_, row) => (
-        <>
-          <Button
-            style={{ marginRight: "10px" }}
-            onClick={() => handlePrint(row)}
-          >
-            Print receipt
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <Button onClick={() => handlePrint(row)}>Print receipt</Button>
+          <Button onClick={() => openUpdateInvoiceModal(row)}>
+            Update All
           </Button>
-          <Button onClick={() => setUpdateInvoice(row)}>Update</Button>
-        </>
+          <Button
+            type="default"
+            style={{
+              backgroundColor: "#faad14",
+              borderColor: "#faad14",
+              color: "#fff",
+            }}
+            onClick={() => openUpdateDateModal(row)}
+          >
+            Update Date
+          </Button>
+        </div>
       ),
     },
   ];
@@ -644,62 +866,6 @@ const StudentProfile = () => {
       key: "admin_name",
     },
   ];
-
-  const handelAddNote = () => {
-    const dataSend = {
-      ...NewNoteData,
-      student_id: AddNoteModal?.student_id,
-    };
-
-    console.log(dataSend);
-
-    axios
-      .post(
-        BASE_URL + "/admin/complains_exceptions/add_complain_exception.php",
-        JSON.stringify(dataSend)
-      )
-      .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
-          toast.success(res?.data?.message);
-          setAddNoteModal(null);
-          handleGetStudentData();
-        } else {
-          toast.error(res?.data?.message);
-        }
-      })
-      .catch((e) => console.log(e));
-  };
-
-  const handelUpdateInvoice = () => {
-    const dataSend = {
-      payed: UpdateInvoice?.payed,
-      admin_id: AdminData[0].admin_id,
-      date: UpdateInvoice?.date,
-      payment_id: UpdateInvoice?.payment_id,
-    };
-
-    console.log(dataSend);
-
-    axios
-      .post(
-        BASE_URL + "/admin/home/update_receipt.php",
-        JSON.stringify(dataSend)
-      )
-      .then((res) => {
-        if (res?.data?.status == "success") {
-          toast.success(res?.data?.message);
-          setUpdateInvoice(null);
-          handleGetStudentData();
-        } else {
-          toast.success(res?.data?.message);
-        }
-      });
-  };
-
-  useEffect(() => {
-    console.log(StudentData);
-  }, [StudentData]);
 
   return (
     <>
@@ -768,7 +934,7 @@ const StudentProfile = () => {
 
               <div className="card-body">
                 <Table
-                  rowKey={(record) => record.student_id}
+                  rowKey={(record) => record.payment_id}
                   columns={Payment_columns}
                   dataSource={StudentData[0]?.student_payments}
                 />
@@ -815,7 +981,7 @@ const StudentProfile = () => {
 
               <div className="card-body">
                 <Table
-                  rowKey={(record) => record.student_id}
+                  rowKey={(record) => record.exceptions_complains_id}
                   columns={Notes_columns}
                   dataSource={StudentData[0]?.student_notes}
                 />
@@ -833,7 +999,7 @@ const StudentProfile = () => {
 
               <div className="card-body">
                 <Table
-                  rowKey={(record) => record.student_id}
+                  rowKey={(record) => record.absence_id}
                   columns={absence_columns}
                   dataSource={StudentData[0]?.student_absence}
                 />
@@ -843,6 +1009,7 @@ const StudentProfile = () => {
         </div>
       </div>
 
+      {/* Print Component */}
       {printData && (
         <>
           <div style={{ display: "none" }}>
@@ -863,23 +1030,23 @@ const StudentProfile = () => {
         </>
       )}
 
-      {/* ✅ NEW: Edit Level & Group Modal */}
+      {/* Edit Level & Group Modal */}
       <Modal
         title="Edit Level & Group"
-        open={EditLevelGroupModal}
-        onCancel={handleCloseEditModal}
+        open={isEditLevelGroupOpen}
+        onCancel={closeEditLevelGroupModal}
+        destroyOnClose
         footer={
           <>
             <Button
-              // type="primary"
               style={{ marginRight: "10px" }}
               onClick={handleUpdateLevelGroup}
-              loading={updateLoading}
-              disabled={updateLoading}
+              loading={updateLevelGroupLoading}
+              disabled={updateLevelGroupLoading}
             >
               Update
             </Button>
-            <Button onClick={handleCloseEditModal}>Cancel</Button>
+            <Button onClick={closeEditLevelGroupModal}>Cancel</Button>
           </>
         }
       >
@@ -894,11 +1061,11 @@ const StudentProfile = () => {
         >
           <p style={{ margin: 0 }}>
             <strong>Current Level:</strong>{" "}
-            {rowData?.level_data?.level_name || "N/A"}
+            {editLevelGroupRowData?.level_data?.level_name || "N/A"}
           </p>
           <p style={{ margin: 0 }}>
             <strong>Current Group:</strong>{" "}
-            {rowData?.group_data?.group_name || "N/A"}
+            {editLevelGroupRowData?.group_data?.group_name || "N/A"}
           </p>
         </div>
 
@@ -913,7 +1080,7 @@ const StudentProfile = () => {
           <Select
             placeholder="Select a level"
             style={{ width: "100%" }}
-            value={EditLevelGroupData?.level_id || undefined}
+            value={editLevelGroupData?.level_id || undefined}
             onChange={handleLevelChange}
           >
             {Levels.map((level) => (
@@ -934,20 +1101,20 @@ const StudentProfile = () => {
           </label>
           <Select
             placeholder={
-              EditLevelGroupData?.level_id
+              editLevelGroupData?.level_id
                 ? "Select a group"
                 : "Please select a level first"
             }
             style={{ width: "100%" }}
-            value={EditLevelGroupData?.group_id || undefined}
+            value={editLevelGroupData?.group_id || undefined}
             onChange={(value) =>
-              setEditLevelGroupData({
-                ...EditLevelGroupData,
+              setEditLevelGroupData((prev) => ({
+                ...prev,
                 group_id: value,
-              })
+              }))
             }
             loading={groupsLoading}
-            disabled={!EditLevelGroupData?.level_id}
+            disabled={!editLevelGroupData?.level_id}
             notFoundContent={
               groupsLoading ? (
                 <Spin size="small" />
@@ -965,117 +1132,217 @@ const StudentProfile = () => {
         </div>
       </Modal>
 
+      {/* Update Invoice Modal (Update All) */}
       <Modal
-        title={`Update invoice /invoice id => #${UpdateInvoice?.payment_id}`}
-        open={UpdateInvoice}
+        title={`Update invoice / invoice id => #${
+          updateInvoiceData?.payment_id || ""
+        }`}
+        open={isUpdateInvoiceOpen}
+        onCancel={closeUpdateInvoiceModal}
+        destroyOnClose
         footer={
           <>
             <Button
-              style={{ margin: "0px 10px " }}
-              onClick={handelUpdateInvoice}
+              style={{ margin: "0px 10px" }}
+              onClick={handleUpdateInvoice}
+              loading={updateInvoiceLoading}
+              disabled={updateInvoiceLoading}
             >
               Update
             </Button>
-            <Button onClick={() => setUpdateInvoice(null)}>Cancel</Button>
+            <Button onClick={closeUpdateInvoiceModal}>Cancel</Button>
           </>
         }
-        onCancel={() => setUpdateInvoice(null)}
       >
         <div className="form_field">
-          <label className="form_label">paied date</label>
+          <label className="form_label">Paid date</label>
           <input
             className="form_input"
-            value={UpdateInvoice?.date}
+            value={updateInvoiceData?.date || ""}
             onChange={(e) =>
-              setUpdateInvoice({
-                ...UpdateInvoice,
+              setUpdateInvoiceData((prev) => ({
+                ...prev,
                 date: e.target.value,
-              })
+              }))
             }
             type="date"
           />
         </div>
         <div className="form_field">
-          <label className="form_label">Paied coast</label>
+          <label className="form_label">Paid cost</label>
           <input
             className="form_input"
-            value={UpdateInvoice?.payed}
+            value={updateInvoiceData?.payed || ""}
             onChange={(e) =>
-              setUpdateInvoice({
-                ...UpdateInvoice,
+              setUpdateInvoiceData((prev) => ({
+                ...prev,
                 payed: e.target.value,
-              })
+              }))
             }
             type="text"
           />
         </div>
       </Modal>
 
+      {/* Update Date Only Modal */}
       <Modal
-        title={`Add note for: (${AddNoteModal?.name || ""})`}
-        open={AddNoteModal}
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span>
+              Update Invoice Date - #{updateDateData?.payment_id || ""}
+            </span>
+          </div>
+        }
+        open={isUpdateDateOpen}
+        onCancel={closeUpdateDateModal}
+        destroyOnClose
         footer={
           <>
             <Button
-              style={{ margin: "0px 10px " }}
-              onClick={() => handelAddNote()}
+              type="primary"
+              style={{
+                backgroundColor: "#faad14",
+                borderColor: "#faad14",
+                marginRight: "10px",
+              }}
+              onClick={handleUpdateDateOnly}
+              loading={updateDateLoading}
+              disabled={updateDateLoading}
+            >
+              Update Date
+            </Button>
+            <Button onClick={closeUpdateDateModal}>Cancel</Button>
+          </>
+        }
+      >
+        <div className="form_field">
+          <label
+            className="form_label"
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              fontWeight: "600",
+            }}
+          >
+            New Date
+          </label>
+          <input
+            className="form_input"
+            value={updateDateData?.date || ""}
+            onChange={(e) =>
+              setUpdateDateData((prev) => ({
+                ...prev,
+                date: e.target.value,
+              }))
+            }
+            type="date"
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "6px",
+              border: "1px solid #d9d9d9",
+              fontSize: "14px",
+            }}
+          />
+        </div>
+      </Modal>
+
+      {/* Add Note Modal */}
+      <Modal
+        title={`Add note for: (${addNoteStudentData?.name || ""})`}
+        open={isAddNoteOpen}
+        onCancel={closeAddNoteModal}
+        destroyOnClose
+        footer={
+          <>
+            <Button
+              style={{ margin: "0px 10px" }}
+              onClick={handleAddNote}
+              loading={addNoteLoading}
+              disabled={addNoteLoading}
             >
               Add
             </Button>
-            <Button onClick={() => setAddNoteModal(null)}>Cancel</Button>
+            <Button onClick={closeAddNoteModal}>Cancel</Button>
           </>
         }
-        onCancel={() => setAddNoteModal(null)}
       >
         <div className="form_field">
           <label className="form_label">Type</label>
           <Select
+            style={{ width: "100%" }}
             options={TypesOptions}
-            onChange={(e) => {
-              setNewNoteData({
-                ...NewNoteData,
-                Type: e,
-              });
+            value={newNoteData?.Type || undefined}
+            placeholder="Select type"
+            onChange={(value) => {
+              setNewNoteData((prev) => ({
+                ...prev,
+                Type: value,
+              }));
             }}
           />
         </div>
 
         <div className="form_field">
-          <label className="form_label">Note Text </label>
+          <label className="form_label">Note Text</label>
           <textarea
-            type="text"
             className="form_input"
             dir={textDirection}
+            value={newNoteData?.Text || ""}
             onChange={(e) => {
               const value = e.target.value;
               setTextDirection(detectLanguage(value));
-              setNewNoteData({
-                ...NewNoteData,
+              setNewNoteData((prev) => ({
+                ...prev,
                 Text: value,
-              });
+              }));
             }}
             rows={5}
           />
         </div>
       </Modal>
 
+      {/* Remove from Group Modal */}
       <Modal
-        title={`remove student from group`}
-        open={RemoveModal}
+        title="Remove student from group"
+        open={isRemoveModalOpen}
+        onCancel={closeRemoveModal}
+        destroyOnClose
         footer={
           <>
             <Button
-              style={{ margin: "0px 10px " }}
-              onClick={handelRemoveFromGroup}
+              style={{ margin: "0px 10px" }}
+              onClick={handleRemoveFromGroup}
+              loading={removeLoading}
+              disabled={removeLoading}
+              danger
             >
               Remove
             </Button>
-            <Button onClick={() => setRemoveModal(false)}>Cancel</Button>
+            <Button onClick={closeRemoveModal}>Cancel</Button>
           </>
         }
-        onCancel={() => setRemoveModal(false)}
       >
-        <h1>Are you sure you want to remove this student from this group?</h1>
+        <h3>Are you sure you want to remove this student from this group?</h3>
+        {removeRowData && (
+          <div
+            style={{
+              backgroundColor: "#f5f5f5",
+              padding: "10px",
+              borderRadius: "8px",
+              marginTop: "10px",
+            }}
+          >
+            <p style={{ margin: 0 }}>
+              <strong>Group:</strong>{" "}
+              {removeRowData?.group_data?.group_name || "N/A"}
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong>Level:</strong>{" "}
+              {removeRowData?.level_data?.level_name || "N/A"}
+            </p>
+          </div>
+        )}
       </Modal>
     </>
   );

@@ -101,6 +101,11 @@ export const MENUITEMS = [
         type: "link",
         path: `${process.env.PUBLIC_URL}/feedback`,
       },
+      {
+        title: "Place Rate",
+        type: "link",
+        path: `${process.env.PUBLIC_URL}/place-rate`,
+      },
     ],
   },
   {
