@@ -3,7 +3,7 @@ import axios from "axios";
 import io from "socket.io-client";
 import { useLocation, useParams } from "react-router-dom";
 import "./style.css";
-import { Image } from "antd";
+import { Image, Dropdown, Menu } from "antd";
 // Import React Icons
 import {
   MdMic,
@@ -15,10 +15,11 @@ import {
   MdStop,
   MdClose,
   MdUpload,
+  MdImage,
+  MdPictureAsPdf,
+  MdDescription,
+  MdTableChart,
 } from "react-icons/md";
-import { BiMicrophone } from "react-icons/bi";
-import { IoMicOutline, IoSendSharp } from "react-icons/io5";
-import { FiMic, FiPaperclip } from "react-icons/fi";
 
 const backendUrl = "https://camp-coding.tech";
 
@@ -31,6 +32,113 @@ const socket = io(backendUrl, {
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
 });
+
+// Document type detection helper
+const getDocumentInfo = (fileOrUrl) => {
+  let extension = "";
+
+  if (typeof fileOrUrl === "string") {
+    // It's a URL
+    const urlWithoutParams = fileOrUrl.split("?")[0];
+    extension = urlWithoutParams.split(".").pop()?.toLowerCase() || "";
+  } else if (fileOrUrl?.name) {
+    // It's a File object
+    extension = fileOrUrl.name.split(".").pop()?.toLowerCase() || "";
+  } else if (fileOrUrl?.type) {
+    // Check by MIME type
+    const mimeType = fileOrUrl.type;
+    if (mimeType === "application/pdf") extension = "pdf";
+    else if (
+      mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimeType === "application/msword"
+    )
+      extension = "docx";
+    else if (
+      mimeType ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      mimeType === "application/vnd.ms-excel"
+    )
+      extension = "xlsx";
+    else if (mimeType === "text/csv" || mimeType === "application/csv")
+      extension = "csv";
+  }
+
+  switch (extension) {
+    case "pdf":
+      return {
+        icon: <MdPictureAsPdf size={24} color="#dc3545" />,
+        label: "PDF Document",
+        color: "#dc3545",
+        bgColor: "rgba(220, 53, 69, 0.1)",
+        borderColor: "rgba(220, 53, 69, 0.3)",
+      };
+    case "doc":
+    case "docx":
+      return {
+        icon: <MdDescription size={24} color="#2b579a" />,
+        label: "Word Document",
+        color: "#2b579a",
+        bgColor: "rgba(43, 87, 154, 0.1)",
+        borderColor: "rgba(43, 87, 154, 0.3)",
+      };
+    case "xls":
+    case "xlsx":
+      return {
+        icon: <MdTableChart size={24} color="#217346" />,
+        label: "Excel Spreadsheet",
+        color: "#217346",
+        bgColor: "rgba(33, 115, 70, 0.1)",
+        borderColor: "rgba(33, 115, 70, 0.3)",
+      };
+    case "csv":
+      return {
+        icon: <MdTableChart size={24} color="#28a745" />,
+        label: "CSV File",
+        color: "#28a745",
+        bgColor: "rgba(40, 167, 69, 0.1)",
+        borderColor: "rgba(40, 167, 69, 0.3)",
+      };
+    default:
+      return {
+        icon: <MdDescription size={24} color="#6c757d" />,
+        label: "Document",
+        color: "#6c757d",
+        bgColor: "rgba(108, 117, 125, 0.1)",
+        borderColor: "rgba(108, 117, 125, 0.3)",
+      };
+  }
+};
+
+// Check if file is a supported document type
+const isDocumentType = (file) => {
+  const supportedMimeTypes = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "text/csv",
+    "application/csv",
+  ];
+
+  const supportedExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "csv"];
+
+  if (supportedMimeTypes.includes(file.type)) {
+    return true;
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return supportedExtensions.includes(extension);
+};
+
+// Get file name from URL
+const getFileNameFromUrl = (url) => {
+  if (!url) return "Document";
+  const urlWithoutParams = url.split("?")[0];
+  const fileName = urlWithoutParams.split("/").pop();
+  return fileName || "Document";
+};
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
@@ -61,7 +169,8 @@ const Chat = () => {
 
   const adminId = AdminData[0]?.admin_id;
   const messageEndRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const documentInputRef = useRef(null);
   const senderName = AdminData[0]?.name;
   const location = useLocation();
   const { additionalData } = location.state || {};
@@ -69,6 +178,10 @@ const Chat = () => {
   const user_image =
     additionalData?.image ||
     "https://res.cloudinary.com/dhgp9dzdt/image/upload/v1749036826/WhatsApp_Image_2025-06-04_at_14.31.19_e58a8cb4_b9cvno.jpg";
+
+  // Accepted document types for file input
+  const acceptedDocumentTypes =
+    ".pdf,.doc,.docx,.xls,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv";
 
   // Get supported audio MIME type
   const getSupportedAudioMimeType = () => {
@@ -105,7 +218,6 @@ const Chat = () => {
       console.log("Starting audio recording...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Get the best supported MIME type
       const mimeType = getSupportedAudioMimeType();
       setAudioMimeType(mimeType);
 
@@ -140,7 +252,6 @@ const Chat = () => {
         setAudioBlob(audioBlob);
         setAudioUrl(audioUrl);
 
-        // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
       };
 
@@ -148,7 +259,6 @@ const Chat = () => {
       setIsRecording(true);
       setRecordingTime(0);
 
-      // Start timer
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
@@ -234,7 +344,7 @@ const Chat = () => {
       .padStart(2, "0")}`;
   };
 
-  // Send audio message via API - Updated to handle MP4/M4A
+  // Send audio message via API
   const sendAudioMessage = async () => {
     if (!audioBlob || !chatId) {
       console.error("Missing required data for audio upload");
@@ -247,75 +357,20 @@ const Chat = () => {
 
     try {
       console.log("=== Starting Audio Upload ===");
-      console.log("Audio blob:", {
-        size: audioBlob.size,
-        type: audioBlob.type,
-      });
-      console.log("Audio MIME type:", audioMimeType);
-      console.log("Chat ID:", chatId);
-      console.log("Group ID:", group_id);
-      console.log("Admin ID:", adminId);
-      console.log("Sender Name:", senderName);
-
-      // Validate required data
-      if (!chatId) {
-        throw new Error("Chat ID is missing");
-      }
-      if (!adminId) {
-        throw new Error("Admin ID is missing");
-      }
-      if (!audioBlob || audioBlob.size === 0) {
-        throw new Error("Audio blob is missing or empty");
-      }
-
       const formData = new FormData();
-
-      // Get the appropriate file extension
       const fileExtension = getFileExtension(audioMimeType);
       const fileName = `audio_${Date.now()}.${fileExtension}`;
-
-      console.log("File name:", fileName);
-      console.log("File extension:", fileExtension);
-
-      // Create a file from the blob with proper extension and metadata
       const audioFile = new File([audioBlob], fileName, {
         type: audioMimeType,
         lastModified: Date.now(),
       });
 
-      console.log("Audio file created:", {
-        name: audioFile.name,
-        type: audioFile.type,
-        size: audioFile.size,
-        sizeInMB: (audioFile.size / 1024 / 1024).toFixed(2) + " MB",
-      });
-
-      // Append data to FormData
       formData.append("file", audioFile);
       formData.append("chatId", String(chatId));
       formData.append("senderId", String(adminId));
       formData.append("senderRole", "admin");
       formData.append("senderName", senderName);
       formData.append("messageType", "audio");
-
-      // Log FormData entries
-      console.log("FormData entries:");
-      for (let pair of formData.entries()) {
-        if (pair[0] === "file") {
-          console.log(pair[0], ":", {
-            name: pair[1].name,
-            type: pair[1].type,
-            size: pair[1].size,
-          });
-        } else {
-          console.log(pair[0], ":", pair[1]);
-        }
-      }
-
-      console.log(
-        "Sending to:",
-        `${backendUrl}/campForEnglishChat/groupChat/sendMedia`
-      );
 
       const response = await axios.post(
         `${backendUrl}/campForEnglishChat/groupChat/sendMedia`,
@@ -324,23 +379,19 @@ const Chat = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          timeout: 180000, // 3 minute timeout
+          timeout: 180000,
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
               const percentCompleted = Math.round(
                 (progressEvent.loaded * 100) / progressEvent.total
               );
-              console.log("Upload progress:", percentCompleted + "%");
               setUploadProgress(percentCompleted);
             }
           },
         }
       );
 
-      console.log("Upload response:", response.data);
       const messageData = response.data;
-
-      // Format the message similar to how images/videos are handled
       const formattedMessage = {
         _id: messageData.messageId,
         text: messageData.messageText || "",
@@ -357,46 +408,21 @@ const Chat = () => {
         messageType: messageData.messageType,
       };
 
-      console.log("Formatted message:", formattedMessage);
-
-      // Add to messages state
       setMessages((prevMessages) => {
         const messageExists = prevMessages.some(
           (msg) => msg._id === formattedMessage._id
         );
         if (messageExists) {
-          console.log("Message already exists in state");
           return prevMessages;
         }
-        console.log("Adding message to state");
         return [...prevMessages, formattedMessage];
       });
 
-      // Clear audio recording
       deleteAudioRecording();
       setUploadProgress(0);
-
-      console.log("=== Audio Upload Completed Successfully ===");
     } catch (error) {
-      console.error("=== Audio Upload Failed ===");
-      console.error("Error object:", error);
-      console.error("Error message:", error.message);
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-      console.error("Error config:", error.config);
-
-      let errorMessage = "Failed to upload audio";
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.code === "ECONNABORTED") {
-        errorMessage = "Upload timeout. Please try again.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      alert(`Upload Error: ${errorMessage}`);
+      console.error("=== Audio Upload Failed ===", error);
+      alert(`Upload Error: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -507,6 +533,10 @@ const Chat = () => {
             newMessage.mediaUrl && newMessage.messageType === "audio"
               ? newMessage.mediaUrl
               : undefined,
+          document:
+            newMessage.mediaUrl && newMessage.messageType === "document"
+              ? newMessage.mediaUrl
+              : undefined,
           videoThumbnail: newMessage.thumbnailUrl,
           messageType: newMessage.messageType,
         };
@@ -573,7 +603,7 @@ const Chat = () => {
     }
   };
 
-  const handleFileSelect = (event) => {
+  const handleFileSelect = (event, fileType) => {
     const target = event.target;
     const file = target.files?.[0];
     if (file) {
@@ -582,11 +612,20 @@ const Chat = () => {
         type: file.type,
         size: file.size,
       });
+
+      // Validate document type
+      if (fileType === "document" && !isDocumentType(file)) {
+        alert(
+          "Unsupported file type. Please upload PDF, DOC, DOCX, XLS, XLSX, or CSV files."
+        );
+        return;
+      }
+
       setSelectedFile(file);
     }
   };
 
-  // Updated handleMediaUpload to match the pattern
+  // Updated handleMediaUpload to support all document types
   const handleMediaUpload = async () => {
     if (!selectedFile || !chatId) {
       console.error("Missing required data for media upload");
@@ -605,21 +644,6 @@ const Chat = () => {
         size: selectedFile.size,
         sizeInMB: (selectedFile.size / 1024 / 1024).toFixed(2) + " MB",
       });
-      console.log("Chat ID:", chatId);
-      console.log("Group ID:", group_id);
-      console.log("Admin ID:", adminId);
-      console.log("Sender Name:", senderName);
-
-      // Validate required data
-      if (!chatId) {
-        throw new Error("Chat ID is missing");
-      }
-      if (!adminId) {
-        throw new Error("Admin ID is missing");
-      }
-      if (!selectedFile) {
-        throw new Error("Selected file is missing");
-      }
 
       const formData = new FormData();
       formData.append("file", selectedFile);
@@ -628,17 +652,17 @@ const Chat = () => {
       formData.append("senderRole", "admin");
       formData.append("senderName", senderName);
 
-      const messageType = selectedFile.type.startsWith("image/")
-        ? "image"
-        : "video";
-      formData.append("messageType", messageType);
+      // Determine message type
+      let messageType = "file";
+      if (selectedFile.type.startsWith("image/")) {
+        messageType = "image";
+      } else if (selectedFile.type.startsWith("video/")) {
+        messageType = "video";
+      } else if (isDocumentType(selectedFile)) {
+        messageType = "document";
+      }
 
-      console.log("FormData created successfully");
-      console.log("Message type:", messageType);
-      console.log(
-        "Sending to:",
-        `${backendUrl}/campForEnglishChat/groupChat/sendMedia`
-      );
+      formData.append("messageType", messageType);
 
       const response = await axios.post(
         `${backendUrl}/campForEnglishChat/groupChat/sendMedia`,
@@ -647,23 +671,19 @@ const Chat = () => {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          timeout: 180000, // 3 minute timeout
+          timeout: 180000,
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
               const percentCompleted = Math.round(
                 (progressEvent.loaded * 100) / progressEvent.total
               );
-              console.log("Upload progress:", percentCompleted + "%");
               setUploadProgress(percentCompleted);
             }
           },
         }
       );
 
-      console.log("Upload response:", response.data);
       const messageData = response.data;
-
-      // Format the message
       const formattedMessage = {
         _id: messageData.messageId,
         text: messageData.messageText || "",
@@ -681,52 +701,37 @@ const Chat = () => {
           messageData.mediaUrl && messageData.messageType === "video"
             ? messageData.mediaUrl
             : undefined,
+        document:
+          messageData.mediaUrl && messageData.messageType === "document"
+            ? messageData.mediaUrl
+            : undefined,
         videoThumbnail: messageData.thumbnailUrl,
         messageType: messageData.messageType,
       };
 
-      console.log("Formatted message:", formattedMessage);
-
-      // Add to messages state
       setMessages((prevMessages) => {
         const messageExists = prevMessages.some(
           (msg) => msg._id === formattedMessage._id
         );
         if (messageExists) {
-          console.log("Message already exists in state");
           return prevMessages;
         }
-        console.log("Adding message to state");
         return [...prevMessages, formattedMessage];
       });
 
-      // Clear file selection
       setSelectedFile(null);
       setUploadProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (imageInputRef.current) {
+        imageInputRef.current.value = "";
+      }
+      if (documentInputRef.current) {
+        documentInputRef.current.value = "";
       }
 
       console.log("=== Media Upload Completed Successfully ===");
     } catch (error) {
-      console.error("=== Media Upload Failed ===");
-      console.error("Error object:", error);
-      console.error("Error message:", error.message);
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-
-      let errorMessage = "Failed to upload media";
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.code === "ECONNABORTED") {
-        errorMessage = "Upload timeout. Please try again.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      alert(`Upload Error: ${errorMessage}`);
+      console.error("=== Media Upload Failed ===", error?.response);
+      alert(`Upload Error: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -802,6 +807,10 @@ const Chat = () => {
             msg.mediaUrl && msg.messageType === "audio"
               ? msg.mediaUrl
               : undefined,
+          document:
+            msg.mediaUrl && msg.messageType === "document"
+              ? msg.mediaUrl
+              : undefined,
           videoThumbnail: msg.thumbnailUrl,
           messageType: msg.messageType,
         }));
@@ -863,6 +872,26 @@ const Chat = () => {
       console.error("Failed to send message:", error);
     }
   };
+
+  // Attachment Menu
+  const attachmentMenu = (
+    <Menu>
+      <Menu.Item
+        key="image"
+        icon={<MdImage size={18} />}
+        onClick={() => imageInputRef.current?.click()}
+      >
+        Image
+      </Menu.Item>
+      <Menu.Item
+        key="document"
+        icon={<MdDescription size={18} />}
+        onClick={() => documentInputRef.current?.click()}
+      >
+        Document (PDF, Word, Excel, CSV)
+      </Menu.Item>
+    </Menu>
+  );
 
   return (
     <div style={styles.container}>
@@ -956,6 +985,49 @@ const Chat = () => {
                         Your browser does not support the audio element.
                       </audio>
                     </div>
+                  </div>
+                )}
+
+                {msg.document && (
+                  <div style={styles.mediaContainer}>
+                    {(() => {
+                      const docInfo = getDocumentInfo(msg.document);
+                      return (
+                        <div
+                          style={{
+                            ...styles.documentContainer,
+                            backgroundColor: docInfo.bgColor,
+                            borderColor: docInfo.borderColor,
+                          }}
+                        >
+                          {docInfo.icon}
+                          <div style={styles.documentInfo}>
+                            <span style={styles.documentName}>
+                              {getFileNameFromUrl(msg.document)}
+                            </span>
+                            <span
+                              style={{
+                                ...styles.documentType,
+                                color: docInfo.color,
+                              }}
+                            >
+                              {docInfo.label}
+                            </span>
+                          </div>
+                          <a
+                            href={msg.document}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              ...styles.documentLink,
+                              color: docInfo.color,
+                            }}
+                          >
+                            View
+                          </a>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -1092,7 +1164,25 @@ const Chat = () => {
         {selectedFile && (
           <div style={styles.fileUploadSection}>
             <div style={styles.fileInfo}>
-              <span style={styles.fileName}>{selectedFile.name}</span>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                {(() => {
+                  if (selectedFile.type.startsWith("image/")) {
+                    return <MdImage size={24} color="#007bff" />;
+                  }
+                  const docInfo = getDocumentInfo(selectedFile);
+                  return docInfo.icon;
+                })()}
+                <div style={styles.fileDetails}>
+                  <span style={styles.fileName}>{selectedFile.name}</span>
+                  <span style={styles.fileType}>
+                    {selectedFile.type.startsWith("image/")
+                      ? "Image"
+                      : getDocumentInfo(selectedFile).label}
+                  </span>
+                </div>
+              </div>
               <span style={styles.fileSize}>
                 ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
               </span>
@@ -1119,8 +1209,11 @@ const Chat = () => {
               <button
                 onClick={() => {
                   setSelectedFile(null);
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
+                  if (imageInputRef.current) {
+                    imageInputRef.current.value = "";
+                  }
+                  if (documentInputRef.current) {
+                    documentInputRef.current.value = "";
                   }
                 }}
                 style={styles.cancelButton}
@@ -1165,22 +1258,32 @@ const Chat = () => {
             <MdMic size={20} />
           </button>
 
-          {/* File Upload Button */}
+          {/* Hidden File Inputs */}
           <input
-            ref={fileInputRef}
+            ref={imageInputRef}
             type="file"
             accept="image/*,video/*"
-            onChange={handleFileSelect}
+            onChange={(e) => handleFileSelect(e, "media")}
             style={styles.fileInput}
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            style={styles.attachButton}
-            title="Attach file"
-            disabled={isRecording || audioUrl !== null}
-          >
-            <MdAttachFile size={20} />
-          </button>
+          <input
+            ref={documentInputRef}
+            type="file"
+            accept={acceptedDocumentTypes}
+            onChange={(e) => handleFileSelect(e, "document")}
+            style={styles.fileInput}
+          />
+
+          {/* Attachment Dropdown Button */}
+          <Dropdown overlay={attachmentMenu} trigger={["click"]}>
+            <button
+              style={styles.attachButton}
+              title="Attach file"
+              disabled={isRecording || audioUrl !== null}
+            >
+              <MdAttachFile size={20} />
+            </button>
+          </Dropdown>
 
           <button
             onClick={sendMessage}
@@ -1216,6 +1319,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     padding: "20px",
+    gap: "8px",
   },
   header: {
     display: "flex",
@@ -1328,6 +1432,43 @@ const styles = {
     width: "250px",
     height: "40px",
   },
+  documentContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid",
+    minWidth: "220px",
+  },
+  documentInfo: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    overflow: "hidden",
+  },
+  documentName: {
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#333",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "150px",
+  },
+  documentType: {
+    fontSize: "11px",
+    fontWeight: "500",
+  },
+  documentLink: {
+    textDecoration: "none",
+    fontWeight: "bold",
+    fontSize: "13px",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
   typingIndicator: {
     padding: "8px 15px",
     backgroundColor: "#e9ecef",
@@ -1340,7 +1481,6 @@ const styles = {
   typingText: {
     fontSize: "12px",
   },
-  // Recording Styles
   recordingSection: {
     padding: "15px",
     backgroundColor: "#fff3cd",
@@ -1425,7 +1565,6 @@ const styles = {
     display: "flex",
     alignItems: "center",
   },
-  // Audio Preview Styles
   audioPreviewSection: {
     padding: "15px",
     backgroundColor: "#d1ecf1",
@@ -1503,12 +1642,21 @@ const styles = {
   fileInfo: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    justifyContent: "space-between",
     marginBottom: "8px",
+  },
+  fileDetails: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
   },
   fileName: {
     fontWeight: "bold",
     fontSize: "14px",
+  },
+  fileType: {
+    fontSize: "11px",
+    color: "#666",
   },
   fileSize: {
     color: "#666",

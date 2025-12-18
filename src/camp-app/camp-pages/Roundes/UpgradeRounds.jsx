@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Button,
   Select,
@@ -27,17 +27,16 @@ import {
   FiAlertCircle,
   FiTrash2,
   FiSend,
-  FiPlus,
   FiCheck,
   FiX,
   FiLock,
   FiUnlock,
 } from "react-icons/fi";
-import { BiTransfer, BiGroup, BiBuilding, BiArrowBack } from "react-icons/bi";
-import { HiOutlineUserGroup } from "react-icons/hi";
-import { MdOutlineClass, MdAutorenew } from "react-icons/md";
+import { BiArrowBack } from "react-icons/bi";
+import { MdAutorenew } from "react-icons/md";
 import "./style.css";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 
 const { TabPane } = Tabs;
 
@@ -68,6 +67,13 @@ const UpgradeRounds = () => {
   // Round Info
   const [roundInfo, setRoundInfo] = useState(null);
 
+  // Helper function to extract new group ID from string like "موجود مسبقًا (ID: 512)"
+  const extractNewGroupId = (newGroupIdStr) => {
+    if (!newGroupIdStr) return null;
+    const match = newGroupIdStr.match(/ID:\s*(\d+)/);
+    return match ? match[1] : null;
+  };
+
   // Fetch auto groups data
   const fetchAutoGroups = useCallback(async () => {
     try {
@@ -88,18 +94,25 @@ const UpgradeRounds = () => {
         const allData = response.data.data;
         setAutoGroupsData(allData);
 
-        // Separate assigned and unassigned groups
-        const assigned = allData.filter(
-          (group) => group.assign_id !== null && group.assign_id !== ""
-        );
-        const unassigned = allData.filter(
-          (group) => group.assign_id === null || group.assign_id === ""
-        );
+        const assigned = allData.filter((group) => {
+          const hasAssignId =
+            group.assign_id !== null && group.assign_id !== "";
+          const hasValidNewGroupId =
+            extractNewGroupId(group.new_group_id) !== null;
+          return hasAssignId && hasValidNewGroupId;
+        });
+
+        const unassigned = allData.filter((group) => {
+          const hasAssignId =
+            group.assign_id !== null && group.assign_id !== "";
+          const hasValidNewGroupId =
+            extractNewGroupId(group.new_group_id) !== null;
+          return !hasAssignId || !hasValidNewGroupId;
+        });
 
         setAssignedGroups(assigned);
         setUnassignedGroups(unassigned);
 
-        // Set round info from first item
         if (allData.length > 0) {
           setRoundInfo({
             round_id: allData[0].round_id,
@@ -158,71 +171,480 @@ const UpgradeRounds = () => {
     toast.info("Removed from selection");
   };
 
-  // Export upgrade results
-  const exportUpgradeResults = (responseData, selectedGroups) => {
+  // ==================== EXPORT WITH EXCELJS ====================
+  const exportUpgradeResults = async (responseData, selectedGroups) => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Admin System";
+    workbook.created = new Date();
+
+    // ==================== SHEET 1: Upgrade Results ====================
+    const resultsSheet = workbook.addWorksheet("Upgrade Results", {
+      properties: { tabColor: { argb: "FF00FF00" } },
+    });
+
+    // Define columns
+    resultsSheet.columns = [
+      { header: "Status", key: "status", width: 15 },
+      { header: "Student ID", key: "student_id", width: 15 },
+      { header: "Student Name", key: "student_name", width: 30 },
+      { header: "Old Group", key: "old_group", width: 35 },
+      { header: "Old Level", key: "old_level", width: 15 },
+      { header: "New Group", key: "new_group", width: 35 },
+      { header: "New Level", key: "new_level", width: 15 },
+      { header: "Reason", key: "reason", width: 30 },
+      { header: "Date", key: "date", width: 15 },
+      { header: "Time", key: "time", width: 12 },
+    ];
+
+    // Style header row
+    resultsSheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    resultsSheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFEB5D22" },
+    };
+    resultsSheet.getRow(1).alignment = {
+      horizontal: "center",
+      vertical: "middle",
+    };
+    resultsSheet.getRow(1).height = 25;
+
+    // Prepare data
     const exportData = [];
 
-    selectedGroups.forEach((group) => {
-      exportData.push({
-        Status: "✓ Upgraded",
-        "Old Group ID": group.old_group_id,
-        "Old Group Name": group.old_name,
-        "Old Level": group.old_level_name || "N/A",
-        "New Group Name": group.new_name,
-        "New Level": group.next_level_name || "N/A",
-        "New Level ID": group.next_level_id || "N/A",
-        "Start Date": group.new_start_date,
-        "End Date": group.new_end_date,
-        "Max Students": group.max_student || "N/A",
-        Date: new Date().toLocaleDateString(),
-        Time: new Date().toLocaleTimeString(),
+    // Process the details from response if available
+    if (responseData.details && Array.isArray(responseData.details)) {
+      responseData.details.forEach((detail) => {
+        const queueItem = selectedGroups.find(
+          (item) =>
+            item.old_group_id == detail.old_group &&
+            extractNewGroupId(item.new_group_id) == detail.new_group
+        );
+
+        // Add successful students
+        if (
+          detail.successful_students &&
+          Array.isArray(detail.successful_students)
+        ) {
+          detail.successful_students.forEach((student) => {
+            exportData.push({
+              status: "✓ Success",
+              student_id: student.student_id,
+              student_name: student.student_name,
+              old_group: queueItem?.old_name || "N/A",
+              old_level:
+                queueItem?.old_level_name || student.old_level || "N/A",
+              new_group: queueItem?.new_name || "N/A",
+              new_level:
+                queueItem?.next_level_name || student.new_level || "N/A",
+              reason: "Successfully upgraded",
+              date: new Date().toLocaleDateString(),
+              time: new Date().toLocaleTimeString(),
+              isSuccess: true,
+            });
+          });
+        }
+
+        // Add failed students
+        if (detail.failed_students && Array.isArray(detail.failed_students)) {
+          detail.failed_students.forEach((student) => {
+            exportData.push({
+              status: "✗ Failed",
+              student_id: student.student_id,
+              student_name: student.student_name,
+              old_group: queueItem?.old_name || "N/A",
+              old_level:
+                queueItem?.old_level_name || student.old_level || "N/A",
+              new_group: queueItem?.new_name || "N/A",
+              new_level: queueItem?.next_level_name || "N/A",
+              reason: student.reason || "Unknown error",
+              date: new Date().toLocaleDateString(),
+              time: new Date().toLocaleTimeString(),
+              isSuccess: false,
+            });
+          });
+        }
+      });
+    }
+
+    // If no data in details, create summary for simple success response
+    if (exportData.length === 0 && responseData.status === "success") {
+      selectedGroups.forEach((group) => {
+        exportData.push({
+          status: "✓ Upgraded",
+          student_id: "All",
+          student_name: "All students in group",
+          old_group: group.old_name || "N/A",
+          old_level: group.old_level_name || "N/A",
+          new_group: group.new_name || "N/A",
+          new_level: group.next_level_name || "N/A",
+          reason: "Successfully upgraded",
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString(),
+          isSuccess: true,
+        });
+      });
+    }
+
+    // Add data rows with styling
+    exportData.forEach((data, index) => {
+      const row = resultsSheet.addRow({
+        status: data.status,
+        student_id: data.student_id,
+        student_name: data.student_name,
+        old_group: data.old_group,
+        old_level: data.old_level,
+        new_group: data.new_group,
+        new_level: data.new_level,
+        reason: data.reason,
+        date: data.date,
+        time: data.time,
+      });
+
+      // Alternate row colors
+      if (index % 2 === 0) {
+        row.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFF5F5F5" },
+        };
+      }
+
+      // Color status cell based on success/failure
+      const statusCell = row.getCell(1);
+      if (data.isSuccess) {
+        statusCell.font = { bold: true, color: { argb: "FF28A745" } };
+        statusCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFD4EDDA" },
+        };
+      } else {
+        statusCell.font = { bold: true, color: { argb: "FFDC3545" } };
+        statusCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFF8D7DA" },
+        };
+      }
+
+      // Style level cells with colors
+      const oldLevelCell = row.getCell(5);
+      oldLevelCell.font = { bold: true, color: { argb: "FF1890FF" } };
+      oldLevelCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE6F7FF" },
+      };
+
+      const newLevelCell = row.getCell(7);
+      newLevelCell.font = { bold: true, color: { argb: "FF52C41A" } };
+      newLevelCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF6FFED" },
+      };
+
+      row.alignment = { vertical: "middle" };
+    });
+
+    // Add borders to all cells
+    resultsSheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFD9D9D9" } },
+          left: { style: "thin", color: { argb: "FFD9D9D9" } },
+          bottom: { style: "thin", color: { argb: "FFD9D9D9" } },
+          right: { style: "thin", color: { argb: "FFD9D9D9" } },
+        };
       });
     });
 
-    // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    // ==================== SHEET 2: Groups Summary ====================
+    const groupsSheet = workbook.addWorksheet("Groups Summary", {
+      properties: { tabColor: { argb: "FF1890FF" } },
+    });
 
-    // Set column widths
-    const columnWidths = [
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 35 },
-      { wch: 12 },
-      { wch: 35 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
+    groupsSheet.columns = [
+      { header: "#", key: "index", width: 8 },
+      { header: "Old Group ID", key: "old_group_id", width: 15 },
+      { header: "Old Group Name", key: "old_group_name", width: 40 },
+      { header: "Old Level", key: "old_level", width: 15 },
+      { header: "", key: "arrow", width: 5 },
+      { header: "New Group ID", key: "new_group_id", width: 15 },
+      { header: "New Group Name", key: "new_group_name", width: 40 },
+      { header: "New Level", key: "new_level", width: 15 },
+      { header: "Start Date", key: "start_date", width: 15 },
+      { header: "End Date", key: "end_date", width: 15 },
     ];
-    worksheet["!cols"] = columnWidths;
 
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Upgrade Results");
+    // Style header
+    groupsSheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    groupsSheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1890FF" },
+    };
+    groupsSheet.getRow(1).alignment = {
+      horizontal: "center",
+      vertical: "middle",
+    };
+    groupsSheet.getRow(1).height = 25;
 
-    // Add summary sheet
+    // Add groups data
+    selectedGroups.forEach((group, index) => {
+      const row = groupsSheet.addRow({
+        index: index + 1,
+        old_group_id: group.old_group_id,
+        old_group_name: group.old_name,
+        old_level: group.old_level_name || "N/A",
+        arrow: "→",
+        new_group_id: extractNewGroupId(group.new_group_id) || "N/A",
+        new_group_name: group.new_name,
+        new_level: group.next_level_name || "N/A",
+        start_date: group.new_start_date || group.start_time,
+        end_date: group.new_end_date || group.end_time,
+      });
+
+      if (index % 2 === 0) {
+        row.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFF5F5F5" },
+        };
+      }
+
+      // Style arrow cell
+      const arrowCell = row.getCell(5);
+      arrowCell.font = { bold: true, size: 14, color: { argb: "FFEB5D22" } };
+      arrowCell.alignment = { horizontal: "center" };
+
+      // Style old level
+      const oldLevelCell = row.getCell(4);
+      oldLevelCell.font = { bold: true, color: { argb: "FF1890FF" } };
+      oldLevelCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE6F7FF" },
+      };
+
+      // Style new level
+      const newLevelCell = row.getCell(8);
+      newLevelCell.font = { bold: true, color: { argb: "FF52C41A" } };
+      newLevelCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF6FFED" },
+      };
+
+      row.alignment = { vertical: "middle" };
+    });
+
+    // Add borders
+    groupsSheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFD9D9D9" } },
+          left: { style: "thin", color: { argb: "FFD9D9D9" } },
+          bottom: { style: "thin", color: { argb: "FFD9D9D9" } },
+          right: { style: "thin", color: { argb: "FFD9D9D9" } },
+        };
+      });
+    });
+
+    // ==================== SHEET 3: Summary ====================
+    const summarySheet = workbook.addWorksheet("Summary", {
+      properties: { tabColor: { argb: "FF52C41A" } },
+    });
+
+    summarySheet.columns = [
+      { header: "Metric", key: "metric", width: 30 },
+      { header: "Value", key: "value", width: 40 },
+    ];
+
+    // Style header
+    summarySheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    summarySheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF52C41A" },
+    };
+    summarySheet.getRow(1).height = 25;
+
+    const successCount = exportData.filter((d) => d.isSuccess).length;
+    const failCount = exportData.filter((d) => !d.isSuccess).length;
+
+    // Get unique levels
+    const oldLevels = [
+      ...new Set(selectedGroups.map((g) => g.old_level_name).filter(Boolean)),
+    ];
+    const newLevels = [
+      ...new Set(selectedGroups.map((g) => g.next_level_name).filter(Boolean)),
+    ];
+
     const summaryData = [
-      { Metric: "Total Groups Upgraded", Value: selectedGroups.length },
-      { Metric: "Round ID", Value: round_id },
-      { Metric: "Upgrade Date", Value: new Date().toLocaleDateString() },
-      { Metric: "Upgrade Time", Value: new Date().toLocaleTimeString() },
-      { Metric: "Admin ID", Value: adminData?.[0]?.admin_id || "N/A" },
+      { metric: "Total Groups Upgraded", value: selectedGroups.length },
+      {
+        metric: "Total Students Processed",
+        value: responseData.summary?.total_upgraded || exportData.length,
+      },
+      { metric: "Successful Upgrades", value: successCount },
+      { metric: "Failed Upgrades", value: failCount },
+      { metric: "Round ID", value: round_id },
+      { metric: "Old Levels", value: oldLevels.join(", ") || "N/A" },
+      { metric: "New Levels", value: newLevels.join(", ") || "N/A" },
+      { metric: "Upgrade Date", value: new Date().toLocaleDateString() },
+      { metric: "Upgrade Time", value: new Date().toLocaleTimeString() },
+      { metric: "Admin ID", value: adminData?.[0]?.admin_id || "N/A" },
     ];
 
-    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    summarySheet["!cols"] = [{ wch: 25 }, { wch: 30 }];
-    XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+    summaryData.forEach((item, index) => {
+      const row = summarySheet.addRow(item);
 
-    // Generate filename
+      if (index % 2 === 0) {
+        row.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFF5F5F5" },
+        };
+      }
+
+      row.getCell(1).font = { bold: true };
+
+      // Highlight success/fail counts
+      if (item.metric === "Successful Upgrades") {
+        row.getCell(2).font = { bold: true, color: { argb: "FF28A745" } };
+      }
+      if (item.metric === "Failed Upgrades" && failCount > 0) {
+        row.getCell(2).font = { bold: true, color: { argb: "FFDC3545" } };
+      }
+
+      // Style levels
+      if (item.metric === "Old Levels") {
+        row.getCell(2).font = { bold: true, color: { argb: "FF1890FF" } };
+      }
+      if (item.metric === "New Levels") {
+        row.getCell(2).font = { bold: true, color: { argb: "FF52C41A" } };
+      }
+    });
+
+    // Add borders
+    summarySheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFD9D9D9" } },
+          left: { style: "thin", color: { argb: "FFD9D9D9" } },
+          bottom: { style: "thin", color: { argb: "FFD9D9D9" } },
+          right: { style: "thin", color: { argb: "FFD9D9D9" } },
+        };
+      });
+    });
+
+    // ==================== SHEET 4: Levels Mapping ====================
+    const levelsSheet = workbook.addWorksheet("Levels Mapping", {
+      properties: { tabColor: { argb: "FFFA8C16" } },
+    });
+
+    levelsSheet.columns = [
+      { header: "#", key: "index", width: 8 },
+      { header: "Old Level Name", key: "old_level_name", width: 25 },
+      { header: "", key: "arrow", width: 5 },
+      { header: "New Level Name", key: "new_level_name", width: 25 },
+      { header: "New Level ID", key: "new_level_id", width: 15 },
+      { header: "Groups Count", key: "groups_count", width: 15 },
+    ];
+
+    // Style header
+    levelsSheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    levelsSheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFFA8C16" },
+    };
+    levelsSheet.getRow(1).height = 25;
+
+    // Create levels mapping
+    const levelsMap = {};
+    selectedGroups.forEach((group) => {
+      const key = `${group.old_level_name || "N/A"}_${
+        group.next_level_name || "N/A"
+      }`;
+      if (!levelsMap[key]) {
+        levelsMap[key] = {
+          old_level_name: group.old_level_name || "N/A",
+          new_level_name: group.next_level_name || "N/A",
+          new_level_id: group.next_level_id || "N/A",
+          count: 0,
+        };
+      }
+      levelsMap[key].count++;
+    });
+
+    Object.values(levelsMap).forEach((item, index) => {
+      const row = levelsSheet.addRow({
+        index: index + 1,
+        old_level_name: item.old_level_name,
+        arrow: "→",
+        new_level_name: item.new_level_name,
+        new_level_id: item.new_level_id,
+        groups_count: item.count,
+      });
+
+      if (index % 2 === 0) {
+        row.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFF5F5F5" },
+        };
+      }
+
+      // Style arrow
+      row.getCell(3).font = {
+        bold: true,
+        size: 14,
+        color: { argb: "FFEB5D22" },
+      };
+      row.getCell(3).alignment = { horizontal: "center" };
+
+      // Style old level
+      row.getCell(2).font = { bold: true, color: { argb: "FF1890FF" } };
+      row.getCell(2).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE6F7FF" },
+      };
+
+      // Style new level
+      row.getCell(4).font = { bold: true, color: { argb: "FF52C41A" } };
+      row.getCell(4).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF6FFED" },
+      };
+    });
+
+    // Add borders
+    levelsSheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFD9D9D9" } },
+          left: { style: "thin", color: { argb: "FFD9D9D9" } },
+          bottom: { style: "thin", color: { argb: "FFD9D9D9" } },
+          right: { style: "thin", color: { argb: "FFD9D9D9" } },
+        };
+      });
+    });
+
+    // ==================== GENERATE FILE ====================
     const filename = `Auto_Upgrade_Report_Round_${round_id}_${
       new Date().toISOString().split("T")[0]
-    }.xlsx`;
+    }_${Date.now()}.xlsx`;
 
-    // Download file
-    XLSX.writeFile(workbook, filename);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    saveAs(blob, filename);
 
     return exportData.length;
   };
@@ -234,37 +656,37 @@ const UpgradeRounds = () => {
       return;
     }
 
+    const invalidGroups = selectedGroups.filter(
+      (group) => !extractNewGroupId(group.new_group_id)
+    );
+
+    if (invalidGroups.length > 0) {
+      toast.error(
+        `${invalidGroups.length} group(s) don't have valid target group IDs.`
+      );
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      // Format data for API
-      // old_group_id**new_group_id**level_id**camp**...
       const dataString = selectedGroups
-        .map(
-          (group) =>
-            `${group.old_group_id}**${group.next_level_id || ""}**${
-              group.assign_id || ""
-            }`
-        )
+        .map((group) => {
+          const newGroupId = extractNewGroupId(group.new_group_id);
+          const levelId = group.next_level_id || "";
+          return `${group.old_group_id}**${newGroupId}**${levelId}`;
+        })
         .join("**camp**");
 
       const dataSend = {
         admin_id: adminData[0]?.admin_id,
-        round_id: round_id,
         data: dataString,
-        groups: selectedGroups.map((g) => ({
-          old_group_id: g.old_group_id,
-          new_name: g.new_name,
-          next_level_id: g.next_level_id,
-          assign_id: g.assign_id,
-          new_start_date: g.new_start_date,
-          new_end_date: g.new_end_date,
-          max_student: g.max_student,
-        })),
       };
 
+      console.log("Submitting upgrade data:", dataSend);
+
       const response = await axios.post(
-        BASE_URL + "/admin/subscription/execute_auto_upgrade.php",
+        BASE_URL + "/admin/subscription/upgrade_all_rounds.php",
         JSON.stringify(dataSend)
       );
 
@@ -274,34 +696,41 @@ const UpgradeRounds = () => {
         response?.data?.status === "success" ||
         response?.data?.status === "partial_success"
       ) {
-        // Export results
-        const exportedCount = exportUpgradeResults(
-          response.data,
+        const exportedCount = await exportUpgradeResults(
+          response?.data,
           selectedGroups
         );
 
-        toast.success(
-          `Successfully upgraded ${selectedGroups.length} groups! Report exported.`,
-          { autoClose: 5000 }
-        );
+        const message =
+          response?.data?.status === "partial_success"
+            ? `${response?.data?.message} Report exported with ${exportedCount} records.`
+            : `All students upgraded successfully! Report exported with ${exportedCount} records.`;
 
-        // Clear selection and refresh
+        toast.success(message, { autoClose: 5000 });
+
+        if (response?.data?.summary) {
+          toast.info(
+            `Total Upgraded: ${response?.data?.summary?.total_upgraded || 0}`,
+            { autoClose: 3000 }
+          );
+        }
+
         setSelectedGroups([]);
         setSelectAll(false);
         setShowConfirmModal(false);
         fetchAutoGroups();
       } else {
-        toast.error(response?.data?.message || "Error upgrading groups");
+        toast.error(response?.data?.message || "Error upgrading students");
       }
     } catch (error) {
       console.error("Upgrade error:", error);
-      toast.error("Error upgrading groups");
+      toast.error("Error upgrading students");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Filter assigned groups
+  // Filter groups
   const filteredAssignedGroups = assignedGroups.filter(
     (group) =>
       group.old_name?.toLowerCase().includes(searchAssigned.toLowerCase()) ||
@@ -314,7 +743,6 @@ const UpgradeRounds = () => {
         .includes(searchAssigned.toLowerCase())
   );
 
-  // Filter unassigned groups
   const filteredUnassignedGroups = unassignedGroups.filter(
     (group) =>
       group.old_name?.toLowerCase().includes(searchUnassigned.toLowerCase()) ||
@@ -324,7 +752,7 @@ const UpgradeRounds = () => {
         .includes(searchUnassigned.toLowerCase())
   );
 
-  // Table columns for selected groups modal
+  // Table columns
   const selectedColumns = [
     {
       title: "#",
@@ -397,7 +825,7 @@ const UpgradeRounds = () => {
     },
   ];
 
-  // Group Card Component
+  // Group Card Component - YOUR ORIGINAL DESIGN
   const GroupCard = ({ group, isAssigned = true }) => {
     const isSelected = isGroupSelected(group.old_group_id);
     const isDisabled = !isAssigned;
@@ -413,7 +841,6 @@ const UpgradeRounds = () => {
           }
         }}
       >
-        {/* Selection Checkbox */}
         {isAssigned && (
           <div className="card-checkbox">
             <Checkbox
@@ -423,7 +850,6 @@ const UpgradeRounds = () => {
           </div>
         )}
 
-        {/* Disabled Lock Icon */}
         {isDisabled && (
           <div className="card-lock">
             <Tooltip title="No assignment configured - Cannot auto upgrade">
@@ -432,7 +858,6 @@ const UpgradeRounds = () => {
           </div>
         )}
 
-        {/* Old Group Section */}
         <div className="group-section old">
           <div className="section-label">
             <span className="label-badge source">FROM</span>
@@ -460,7 +885,6 @@ const UpgradeRounds = () => {
           </div>
         </div>
 
-        {/* Arrow */}
         {isAssigned && (
           <>
             <div className="transfer-arrow-icon">
@@ -493,7 +917,6 @@ const UpgradeRounds = () => {
           </>
         )}
 
-        {/* Status Badge */}
         <div className="status-badge gap-3">
           {isAssigned ? (
             <Tooltip title="Ready for auto upgrade">
@@ -548,7 +971,6 @@ const UpgradeRounds = () => {
         <div className="row">
           <div className="col-sm-12">
             <div className="card upgrade-card">
-              {/* Header */}
               <div className="card-header upgrade-header">
                 <div className="header-content">
                   <div className="title-section">
@@ -592,9 +1014,7 @@ const UpgradeRounds = () => {
                 </div>
               </div>
 
-              {/* Body */}
               <div className="card-body">
-                {/* Stats Cards */}
                 <div className="stats-row mb-4">
                   <div className="stat-card ready">
                     <div className="stat-icon">
@@ -625,9 +1045,7 @@ const UpgradeRounds = () => {
                   </div>
                 </div>
 
-                {/* Tabs */}
                 <Tabs defaultActiveKey="assigned" type="card">
-                  {/* Assigned Groups Tab */}
                   <TabPane
                     tab={
                       <span>
@@ -637,7 +1055,6 @@ const UpgradeRounds = () => {
                     }
                     key="assigned"
                   >
-                    {/* Controls */}
                     <div className="tab-controls">
                       <div className="search-box">
                         <input
@@ -670,7 +1087,6 @@ const UpgradeRounds = () => {
                       </div>
                     </div>
 
-                    {/* Groups List */}
                     <div className="groups-grid">
                       {filteredAssignedGroups.length > 0 ? (
                         filteredAssignedGroups.map((group) => (
@@ -689,7 +1105,6 @@ const UpgradeRounds = () => {
                     </div>
                   </TabPane>
 
-                  {/* Unassigned Groups Tab */}
                   <TabPane
                     tab={
                       <span>
@@ -699,17 +1114,14 @@ const UpgradeRounds = () => {
                     }
                     key="unassigned"
                   >
-                    {/* Info Alert */}
                     <div className="info-alert mb-4">
                       <FiAlertCircle />
                       <span>
                         These groups don't have assignment configuration and
-                        cannot be auto-upgraded. Please configure their
-                        assignments first.
+                        cannot be auto-upgraded.
                       </span>
                     </div>
 
-                    {/* Search */}
                     <div className="tab-controls">
                       <div className="search-box">
                         <input
@@ -721,7 +1133,6 @@ const UpgradeRounds = () => {
                       </div>
                     </div>
 
-                    {/* Groups List */}
                     <div className="groups-grid">
                       {filteredUnassignedGroups.length > 0 ? (
                         filteredUnassignedGroups.map((group) => (
@@ -746,7 +1157,6 @@ const UpgradeRounds = () => {
         </div>
       </div>
 
-      {/* Confirm Modal */}
       <Modal
         title={
           <div className="modal-title">
