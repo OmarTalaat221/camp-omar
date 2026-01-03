@@ -267,7 +267,7 @@ const GroupsList = () => {
     };
     axios
       .post(
-        "https://camp-coding.tech/camp_for_english/admin/home/select_group_levels.php",
+        "http://camp-coding.online/camp-for-english/admin/home/select_group_levels.php",
         data_send
       )
       .then((res) => {
@@ -670,7 +670,7 @@ const GroupsList = () => {
   function handleGetLevels() {
     axios
       .get(
-        "https://camp-coding.tech/camp_for_english/admin/content/select_levels.php"
+        "http://camp-coding.online/camp-for-english/admin/content/select_levels.php"
       )
       .then((res) => {
         console.log(res);
@@ -688,7 +688,7 @@ const GroupsList = () => {
   function handleGetStudents(branch_id) {
     axios
       .post(
-        "https://camp-coding.tech/camp_for_english/admin/home/select_student_with_remaining_sub.php",
+        "http://camp-coding.online/camp-for-english/admin/home/select_student_with_remaining_sub.php",
         {
           branch_id: branch_id,
           admin_type: AdminData[0]?.type,
@@ -710,7 +710,7 @@ const GroupsList = () => {
   function handleGroupGetStudents(group_id) {
     axios
       .post(
-        "https://camp-coding.tech/camp_for_english/admin/absence/select_student_to_chat.php",
+        "http://camp-coding.online/camp-for-english/admin/absence/select_student_to_chat.php",
         {
           group_id: group_id,
         }
@@ -745,7 +745,7 @@ const GroupsList = () => {
 
     axios
       .post(
-        "https://camp-coding.tech/camp_for_english/admin/home/assign_level_group.php",
+        "http://camp-coding.online/camp-for-english/admin/home/assign_level_group.php",
         dataSend
       )
       .then((res) => {
@@ -1228,36 +1228,36 @@ const GroupsList = () => {
           },
           ...(AdminData?.length > 0 && AdminData[0]?.type === "super_admin"
             ? [
-                {
-                  key: "6",
-                  label: (
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: "100%" }}
-                      onClick={() => setDeleteGroupModal(row)}
-                    >
-                      Delete group
-                    </button>
-                  ),
-                },
-              ]
+              {
+                key: "6",
+                label: (
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: "100%" }}
+                    onClick={() => setDeleteGroupModal(row)}
+                  >
+                    Delete group
+                  </button>
+                ),
+              },
+            ]
             : []),
           ...(AdminData?.length > 0 && AdminData[0]?.type === "super_admin"
             ? [
-                {
-                  key: "7",
-                  label: (
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => {
-                        setEditGroupModal(row);
-                      }}
-                    >
-                      Edit
-                    </button>
-                  ),
-                },
-              ]
+              {
+                key: "7",
+                label: (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setEditGroupModal(row);
+                    }}
+                  >
+                    Edit
+                  </button>
+                ),
+              },
+            ]
             : []),
         ];
 
@@ -1327,18 +1327,18 @@ const GroupsList = () => {
                 <div className="d-flex gap-2">
                   {(Object.keys(filters).length > 0 ||
                     Object.keys(sortOrder).length > 0) && (
-                    <Button
-                      onClick={() => {
-                        setFilters({});
-                        setSortOrder({});
-                        setCurrentPage(1);
-                        updateSearchParams(1, pageSize, {}, {});
-                      }}
-                      style={{ margin: "10px 0" }}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
+                      <Button
+                        onClick={() => {
+                          setFilters({});
+                          setSortOrder({});
+                          setCurrentPage(1);
+                          updateSearchParams(1, pageSize, {}, {});
+                        }}
+                        style={{ margin: "10px 0" }}
+                      >
+                        Clear Filters
+                      </Button>
+                    )}
                   {roundId && (
                     <Button
                       onClick={() => {
@@ -1355,14 +1355,14 @@ const GroupsList = () => {
                   {((AdminData?.length > 0 &&
                     AdminData[0]?.type === "super_admin") ||
                     AdminData[0]?.type === "employee") && (
-                    <Button
-                      color="primary btn-pill"
-                      style={{ margin: "10px 0" }}
-                      onClick={() => setAddGroupModal(true)}
-                    >
-                      Add group
-                    </Button>
-                  )}
+                      <Button
+                        color="primary btn-pill"
+                        style={{ margin: "10px 0" }}
+                        onClick={() => setAddGroupModal(true)}
+                      >
+                        Add group
+                      </Button>
+                    )}
                 </div>
               </div>
               <div className="card-body bg-red">
@@ -1730,9 +1730,8 @@ const GroupsList = () => {
 
       {/* Assign Student Modal */}
       <Modal
-        title={`Assign student To group -> level -> ${
-          rowData?.group_levels?.level_name || ""
-        }`}
+        title={`Assign student To group -> level -> ${rowData?.group_levels?.level_name || ""
+          }`}
         open={AssignStudentModal}
         footer={
           <>
@@ -1780,9 +1779,8 @@ const GroupsList = () => {
 
       {/* Update Student Level Modal */}
       <Modal
-        title={` Update group students from -> level  -> ${
-          rowData?.group_levels?.level_name || ""
-        }`}
+        title={` Update group students from -> level  -> ${rowData?.group_levels?.level_name || ""
+          }`}
         width={800}
         open={UpdateStudentLevelModal}
         footer={

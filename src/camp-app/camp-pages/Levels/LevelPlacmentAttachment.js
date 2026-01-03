@@ -81,7 +81,7 @@ const LevelPlacmentAttachment = () => {
       formData.append("file_attachment", AttchmentPdf);
       await axios
         .post(
-          "https://camp-coding.tech/camp_for_english/admin/upload_pdf.php",
+          "http://camp-coding.online/camp-for-english/admin/upload_pdf.php",
           formData
         )
         .then((resPdf) => {
@@ -124,7 +124,7 @@ const LevelPlacmentAttachment = () => {
       formData.append("voice", audioUrl);
       await axios
         .post(
-          "https://camp-coding.tech/camp_for_english/admin/upload_voice.php",
+          "http://camp-coding.online/camp-for-english/admin/upload_voice.php",
           formData
         )
 

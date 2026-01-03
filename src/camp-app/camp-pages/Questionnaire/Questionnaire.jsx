@@ -14,11 +14,11 @@ export default function Questionnaire() {
     const [formDescription, setFormDescription] = useState('');
     const [questions, setQuestions] = useState([]);
     const [activeQuestionIndex, setActiveQuestionIndex] = useState(null); // State to track the active question
-    const [formData , setFormData] = useState({
-        form_name:"",
-        questions:[],
+    const [formData, setFormData] = useState({
+        form_name: "",
+        questions: [],
     })
-    const [isLoading , setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleAddQuestion = () => {
         const newQuestions = [...questions, {
@@ -165,37 +165,37 @@ export default function Questionnaire() {
             </div>
         );
     };
-    
+
     useEffect(() => {
         console.log(questions);
-    } , [questions])
+    }, [questions])
 
     function handleCreateForm() {
         const data_send = {
-            form_name : formTitle,
+            form_name: formTitle,
             form_description: formDescription,
             questions
         }
         console.log(data_send);
         setIsLoading(true);
-        axios.post("https://camp-coding.tech/camp_for_english/admin/forms/create_form.php",data_send)
-        .then(res =>{
-            console.log(res);
-            if(res?.data?.status == "success") {
-                toast.success(res?.data?.message);
-                setQuestions([]);
-                setFormTitle("");
-                setFormDescription(""); // Clear form description as well
-            }else {
-                toast.error(res?.data?.message);
-            }
-        }).catch(e => {
-            console.log(e);
-            toast.error("An error occurred while creating the form.");
-        })
-        .finally(() => {
-            setIsLoading(false);
-        });
+        axios.post("http://camp-coding.online/camp-for-english/admin/forms/create_form.php", data_send)
+            .then(res => {
+                console.log(res);
+                if (res?.data?.status == "success") {
+                    toast.success(res?.data?.message);
+                    setQuestions([]);
+                    setFormTitle("");
+                    setFormDescription(""); // Clear form description as well
+                } else {
+                    toast.error(res?.data?.message);
+                }
+            }).catch(e => {
+                console.log(e);
+                toast.error("An error occurred while creating the form.");
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
     }
 
     return (
@@ -228,8 +228,8 @@ export default function Questionnaire() {
                         {/* You can add a save button or other actions here */}
                         {/* <div className="card-footer"></div> */}
                         <Button type="dashed" onClick={handleCreateForm} block>
-                                {isLoading ? "Loading...." : "Submit"}
-                            </Button>
+                            {isLoading ? "Loading...." : "Submit"}
+                        </Button>
                     </div>
                 </div>
             </div>

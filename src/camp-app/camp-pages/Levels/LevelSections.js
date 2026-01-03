@@ -61,11 +61,11 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/videos`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/videos`
-                //   )
-                // }
+              // onClick={() =>
+              //   navigate(
+              //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/videos`
+              //   )
+              // }
               >
                 Videos
               </Link>
@@ -78,11 +78,11 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/Examquestions`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/Examquestions`
-                //   )
-                // }
+              // onClick={() =>
+              //   navigate(
+              //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/Examquestions`
+              //   )
+              // }
               >
                 Exam
               </Link>
@@ -95,11 +95,11 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/pdfs`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/pdfs`
-                //   )
-                // }
+              // onClick={() =>
+              //   navigate(
+              //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/pdfs`
+              //   )
+              // }
               >
                 Files
               </Link>
@@ -112,11 +112,11 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/voices`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/voices`
-                //   )
-                // }
+              // onClick={() =>
+              //   navigate(
+              //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/voices`
+              //   )
+              // }
               >
                 Voices
               </Link>
@@ -301,7 +301,7 @@ const LevelSections = () => {
       formData.append("file_attachment", AttchmentPdf);
       await axios
         .post(
-          "https://camp-coding.tech/camp_for_english/admin/upload_pdf.php",
+          "http://camp-coding.online/camp-for-english/admin/upload_pdf.php",
           formData
         )
         .then((resPdf) => {
@@ -344,7 +344,7 @@ const LevelSections = () => {
       formData.append("voice", audioUrl);
       await axios
         .post(
-          "https://camp-coding.tech/camp_for_english/admin/upload_voice.php",
+          "http://camp-coding.online/camp-for-english/admin/upload_voice.php",
           formData
         )
 
@@ -409,7 +409,7 @@ const LevelSections = () => {
     setShowHideLoading(true);
     axios
       .post(
-        "https://camp-coding.tech/camp_for_english/admin/content/show_hide_exam_section.php",
+        "http://camp-coding.online/camp-for-english/admin/content/show_hide_exam_section.php",
         data_send
       )
       .then((res) => {
@@ -730,8 +730,8 @@ const LevelSections = () => {
                 ? "Loading..."
                 : "Hide"
               : showHideLoading
-              ? "Loading..."
-              : "Show"}
+                ? "Loading..."
+                : "Show"}
           </Button>,
           <Button key="cancel" onClick={() => setShowHideModal(false)}>
             Cancel
