@@ -178,7 +178,7 @@ export default function Questionnaire() {
         }
         console.log(data_send);
         setIsLoading(true);
-        axios.post("http://camp-coding.online/camp-for-english/admin/forms/create_form.php", data_send)
+        axios.post("https://camp-coding.online/camp-for-english/admin/forms/create_form.php", data_send)
             .then(res => {
                 console.log(res);
                 if (res?.data?.status == "success") {

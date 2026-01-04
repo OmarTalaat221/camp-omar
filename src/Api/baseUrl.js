@@ -1,1 +1,1 @@
-export const BASE_URL = "http://camp-coding.online/camp-for-english";
+export const BASE_URL = "https://camp-coding.online/camp-for-english";

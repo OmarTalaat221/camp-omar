@@ -271,7 +271,7 @@ export default function BranchStudents() {
     setExceptionLoading(true);
     axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/complains_exceptions/select_students_complains_exceptions.php",
+        "https://camp-coding.online/camp-for-english/admin/complains_exceptions/select_students_complains_exceptions.php",
         data_send
       )
       .then((res) => {

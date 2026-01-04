@@ -267,7 +267,7 @@ const GroupsList = () => {
     };
     axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/home/select_group_levels.php",
+        "https://camp-coding.online/camp-for-english/admin/home/select_group_levels.php",
         data_send
       )
       .then((res) => {
@@ -670,7 +670,7 @@ const GroupsList = () => {
   function handleGetLevels() {
     axios
       .get(
-        "http://camp-coding.online/camp-for-english/admin/content/select_levels.php"
+        "https://camp-coding.online/camp-for-english/admin/content/select_levels.php"
       )
       .then((res) => {
         console.log(res);
@@ -688,7 +688,7 @@ const GroupsList = () => {
   function handleGetStudents(branch_id) {
     axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/home/select_student_with_remaining_sub.php",
+        "https://camp-coding.online/camp-for-english/admin/home/select_student_with_remaining_sub.php",
         {
           branch_id: branch_id,
           admin_type: AdminData[0]?.type,
@@ -710,7 +710,7 @@ const GroupsList = () => {
   function handleGroupGetStudents(group_id) {
     axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/absence/select_student_to_chat.php",
+        "https://camp-coding.online/camp-for-english/admin/absence/select_student_to_chat.php",
         {
           group_id: group_id,
         }
@@ -745,7 +745,7 @@ const GroupsList = () => {
 
     axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/home/assign_level_group.php",
+        "https://camp-coding.online/camp-for-english/admin/home/assign_level_group.php",
         dataSend
       )
       .then((res) => {

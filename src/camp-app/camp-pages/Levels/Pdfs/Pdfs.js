@@ -99,7 +99,7 @@ const Pdfs = () => {
     formData.append("file_attachment", newPdf);
     await axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/upload_pdf.php",
+        "https://camp-coding.online/camp-for-english/admin/upload_pdf.php",
         formData
       )
       .then((resPdf) => {
@@ -164,7 +164,7 @@ const Pdfs = () => {
     formData.append("file_attachment", EditPdfLink);
     await axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/upload_pdf.php",
+        "https://camp-coding.online/camp-for-english/admin/upload_pdf.php",
         formData
       )
       .then((resPdf) => {

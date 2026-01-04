@@ -301,7 +301,7 @@ const LevelSections = () => {
       formData.append("file_attachment", AttchmentPdf);
       await axios
         .post(
-          "http://camp-coding.online/camp-for-english/admin/upload_pdf.php",
+          "https://camp-coding.online/camp-for-english/admin/upload_pdf.php",
           formData
         )
         .then((resPdf) => {
@@ -344,7 +344,7 @@ const LevelSections = () => {
       formData.append("voice", audioUrl);
       await axios
         .post(
-          "http://camp-coding.online/camp-for-english/admin/upload_voice.php",
+          "https://camp-coding.online/camp-for-english/admin/upload_voice.php",
           formData
         )
 
@@ -409,7 +409,7 @@ const LevelSections = () => {
     setShowHideLoading(true);
     axios
       .post(
-        "http://camp-coding.online/camp-for-english/admin/content/show_hide_exam_section.php",
+        "https://camp-coding.online/camp-for-english/admin/content/show_hide_exam_section.php",
         data_send
       )
       .then((res) => {

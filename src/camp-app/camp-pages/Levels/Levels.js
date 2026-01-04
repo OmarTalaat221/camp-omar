@@ -522,7 +522,7 @@ export default function Levels() {
       formData.append("file_attachment", AttchmentPdf);
       await axios
         .post(
-          "http://camp-coding.online/camp-for-english/admin/upload_pdf.php",
+          "https://camp-coding.online/camp-for-english/admin/upload_pdf.php",
           formData
         )
         .then((resPdf) => {
@@ -565,7 +565,7 @@ export default function Levels() {
       formData.append("voice", audioUrl);
       await axios
         .post(
-          "http://camp-coding.online/camp-for-english/admin/upload_voice.php",
+          "https://camp-coding.online/camp-for-english/admin/upload_voice.php",
           formData
         )
 
