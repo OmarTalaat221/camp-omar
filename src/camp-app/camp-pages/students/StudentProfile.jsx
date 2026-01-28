@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import { Button, Modal, Select, Table, Spin } from "antd";
 import { BASE_URL } from "../../../Api/baseUrl";
@@ -143,7 +149,18 @@ const INITIAL_UPDATE_DATE_DATA = {
 };
 
 const StudentProfile = () => {
-  const AdminData = JSON.parse(localStorage.getItem("AdminData"));
+  // ✅ FIX: Memoize AdminData to prevent recreation on every render
+  const AdminData = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("AdminData"));
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // ✅ FIX: Extract admin_id to use in dependencies
+  const adminId = AdminData?.[0]?.admin_id;
+
   const [StudentData, setStudentData] = useState([]);
   const { student_id } = useParams();
   const printRef = useRef();
@@ -206,7 +223,10 @@ const StudentProfile = () => {
 
   // ========== API CALLS ==========
 
+  // ✅ FIX: Use student_id directly, it's a primitive value
   const handleGetStudentData = useCallback(() => {
+    if (!student_id) return;
+
     const dataSend = {
       student_id: student_id,
     };
@@ -223,6 +243,7 @@ const StudentProfile = () => {
       .catch((e) => console.log(e));
   }, [student_id]);
 
+  // ✅ FIX: No dependencies needed, this doesn't depend on any state
   const handleSelectLevels = useCallback(() => {
     axios
       .get(BASE_URL + "/admin/content/select_levels.php")
@@ -234,11 +255,14 @@ const StudentProfile = () => {
       .catch((e) => console.log(e));
   }, []);
 
+  // ✅ FIX: Use adminId (primitive) instead of AdminData (object)
   const handleGetGroups = useCallback(() => {
+    if (!adminId) return;
+
     setGroupsLoading(true);
     axios
       .post(BASE_URL + "/admin/groups/select_groups_by_admin.php", {
-        admin_id: AdminData?.[0]?.admin_id,
+        admin_id: adminId,
       })
       .then((res) => {
         if (res?.data?.status === "success") {
@@ -247,16 +271,19 @@ const StudentProfile = () => {
       })
       .catch((e) => console.log(e))
       .finally(() => setGroupsLoading(false));
-  }, [AdminData]);
+  }, [adminId]);
 
+  // ✅ FIX: Use adminId (primitive) instead of AdminData (object)
   const fetchGroupsByLevel = useCallback(
     async (levelId) => {
+      if (!adminId) return;
+
       setGroupsLoading(true);
       try {
         const res = await axios.post(
           BASE_URL + "/admin/groups/select_groups_by_admin.php",
           {
-            admin_id: AdminData?.[0]?.admin_id,
+            admin_id: adminId,
           }
         );
 
@@ -277,27 +304,27 @@ const StudentProfile = () => {
         setGroupsLoading(false);
       }
     },
-    [AdminData]
+    [adminId]
   );
 
   // ========== MODAL HANDLERS ==========
 
   // Update Invoice Modal Handlers
-  const openUpdateInvoiceModal = (row) => {
+  const openUpdateInvoiceModal = useCallback((row) => {
     setUpdateInvoiceData({
       payment_id: row?.payment_id,
       payed: row?.payed || "",
       date: row?.date || "",
     });
     setIsUpdateInvoiceOpen(true);
-  };
+  }, []);
 
-  const closeUpdateInvoiceModal = () => {
+  const closeUpdateInvoiceModal = useCallback(() => {
     setIsUpdateInvoiceOpen(false);
     setUpdateInvoiceData(INITIAL_UPDATE_INVOICE_DATA);
-  };
+  }, []);
 
-  const handleUpdateInvoice = () => {
+  const handleUpdateInvoice = useCallback(() => {
     if (!updateInvoiceData?.date) {
       toast.error("Please select a date");
       return;
@@ -311,7 +338,7 @@ const StudentProfile = () => {
 
     const dataSend = {
       payed: updateInvoiceData.payed,
-      admin_id: AdminData?.[0]?.admin_id,
+      admin_id: adminId,
       date: updateInvoiceData.date,
       payment_id: updateInvoiceData.payment_id,
     };
@@ -335,23 +362,28 @@ const StudentProfile = () => {
         toast.error("Error updating invoice");
       })
       .finally(() => setUpdateInvoiceLoading(false));
-  };
+  }, [
+    updateInvoiceData,
+    adminId,
+    closeUpdateInvoiceModal,
+    handleGetStudentData,
+  ]);
 
   // Update Date Only Modal Handlers
-  const openUpdateDateModal = (row) => {
+  const openUpdateDateModal = useCallback((row) => {
     setUpdateDateData({
       payment_id: row?.payment_id,
       date: row?.date || "",
     });
     setIsUpdateDateOpen(true);
-  };
+  }, []);
 
-  const closeUpdateDateModal = () => {
+  const closeUpdateDateModal = useCallback(() => {
     setIsUpdateDateOpen(false);
     setUpdateDateData(INITIAL_UPDATE_DATE_DATA);
-  };
+  }, []);
 
-  const handleUpdateDateOnly = () => {
+  const handleUpdateDateOnly = useCallback(() => {
     if (!updateDateData?.date) {
       toast.error("Please select a date");
       return;
@@ -383,28 +415,31 @@ const StudentProfile = () => {
         toast.error("Error updating date");
       })
       .finally(() => setUpdateDateLoading(false));
-  };
+  }, [updateDateData, closeUpdateDateModal, handleGetStudentData]);
 
   // Add Note Modal Handlers
-  const openAddNoteModal = (row) => {
-    setAddNoteStudentData(row);
-    setNewNoteData({
-      ...INITIAL_NOTE_DATA,
-      student_id: row?.student_id,
-      admin_id: AdminData?.[0]?.admin_id,
-    });
-    setTextDirection("ltr");
-    setIsAddNoteOpen(true);
-  };
+  const openAddNoteModal = useCallback(
+    (row) => {
+      setAddNoteStudentData(row);
+      setNewNoteData({
+        ...INITIAL_NOTE_DATA,
+        student_id: row?.student_id,
+        admin_id: adminId,
+      });
+      setTextDirection("ltr");
+      setIsAddNoteOpen(true);
+    },
+    [adminId]
+  );
 
-  const closeAddNoteModal = () => {
+  const closeAddNoteModal = useCallback(() => {
     setIsAddNoteOpen(false);
     setAddNoteStudentData(null);
     setNewNoteData(INITIAL_NOTE_DATA);
     setTextDirection("ltr");
-  };
+  }, []);
 
-  const handleAddNote = () => {
+  const handleAddNote = useCallback(() => {
     if (!newNoteData?.Type) {
       toast.error("Please select a type");
       return;
@@ -440,20 +475,25 @@ const StudentProfile = () => {
         toast.error("Error adding note");
       })
       .finally(() => setAddNoteLoading(false));
-  };
+  }, [
+    newNoteData,
+    addNoteStudentData,
+    closeAddNoteModal,
+    handleGetStudentData,
+  ]);
 
   // Remove from Group Modal Handlers
-  const openRemoveModal = (row) => {
+  const openRemoveModal = useCallback((row) => {
     setRemoveRowData(row);
     setIsRemoveModalOpen(true);
-  };
+  }, []);
 
-  const closeRemoveModal = () => {
+  const closeRemoveModal = useCallback(() => {
     setIsRemoveModalOpen(false);
     setRemoveRowData(null);
-  };
+  }, []);
 
-  const handleRemoveFromGroup = () => {
+  const handleRemoveFromGroup = useCallback(() => {
     if (!removeRowData?.subscription_id) {
       toast.error("Invalid subscription");
       return;
@@ -484,45 +524,51 @@ const StudentProfile = () => {
         toast.error("Error removing from group");
       })
       .finally(() => setRemoveLoading(false));
-  };
+  }, [removeRowData, closeRemoveModal, handleGetStudentData]);
 
   // Edit Level & Group Modal Handlers
-  const openEditLevelGroupModal = (row) => {
-    const currentLevelId = row?.level_data?.level_id || row?.level_id;
-    const currentGroupId = row?.group_data?.group_id || row?.group_id;
+  const openEditLevelGroupModal = useCallback(
+    (row) => {
+      const currentLevelId = row?.level_data?.level_id || row?.level_id;
+      const currentGroupId = row?.group_data?.group_id || row?.group_id;
 
-    setEditLevelGroupRowData(row);
-    setEditLevelGroupData({
-      subscription_id: row?.subscription_id,
-      level_id: currentLevelId,
-      group_id: currentGroupId,
-    });
-    setIsEditLevelGroupOpen(true);
+      setEditLevelGroupRowData(row);
+      setEditLevelGroupData({
+        subscription_id: row?.subscription_id,
+        level_id: currentLevelId,
+        group_id: currentGroupId,
+      });
+      setIsEditLevelGroupOpen(true);
 
-    if (currentLevelId) {
-      fetchGroupsByLevel(currentLevelId);
-    }
-  };
+      if (currentLevelId) {
+        fetchGroupsByLevel(currentLevelId);
+      }
+    },
+    [fetchGroupsByLevel]
+  );
 
-  const closeEditLevelGroupModal = () => {
+  const closeEditLevelGroupModal = useCallback(() => {
     setIsEditLevelGroupOpen(false);
     setEditLevelGroupData(INITIAL_EDIT_LEVEL_GROUP_DATA);
     setEditLevelGroupRowData(null);
-  };
+  }, []);
 
-  const handleLevelChange = (value) => {
-    setEditLevelGroupData((prev) => ({
-      ...prev,
-      level_id: value,
-      group_id: null,
-    }));
+  const handleLevelChange = useCallback(
+    (value) => {
+      setEditLevelGroupData((prev) => ({
+        ...prev,
+        level_id: value,
+        group_id: null,
+      }));
 
-    if (value) {
-      fetchGroupsByLevel(value);
-    }
-  };
+      if (value) {
+        fetchGroupsByLevel(value);
+      }
+    },
+    [fetchGroupsByLevel]
+  );
 
-  const handleUpdateLevelGroup = () => {
+  const handleUpdateLevelGroup = useCallback(() => {
     if (!editLevelGroupData?.level_id) {
       toast.error("Please select a level");
       return;
@@ -559,24 +605,30 @@ const StudentProfile = () => {
         toast.error("Error updating level and group");
       })
       .finally(() => setUpdateLevelGroupLoading(false));
-  };
+  }, [editLevelGroupData, closeEditLevelGroupModal, handleGetStudentData]);
 
   // Print Handler
-  const handlePrint = (record) => {
+  const handlePrint = useCallback((record) => {
     setPrintData(record);
 
     setTimeout(() => {
       document.getElementById("print-trigger")?.click();
     }, 100);
-  };
+  }, []);
 
   // Filter groups by level for dropdown
-  const filteredGroupOptions = Groups?.filter(
-    (gr) =>
-      gr?.group_levels?.level_id != null &&
-      String(gr.group_levels.level_id) === String(editLevelGroupData?.level_id)
-  );
+  const filteredGroupOptions = useMemo(() => {
+    return (
+      Groups?.filter(
+        (gr) =>
+          gr?.group_levels?.level_id != null &&
+          String(gr.group_levels.level_id) ===
+            String(editLevelGroupData?.level_id)
+      ) || []
+    );
+  }, [Groups, editLevelGroupData?.level_id]);
 
+  // ✅ FIX: Single useEffect with proper dependencies
   useEffect(() => {
     handleGetStudentData();
     handleSelectLevels();
@@ -585,287 +637,305 @@ const StudentProfile = () => {
 
   // ========== TABLE COLUMNS ==========
 
-  const columns = [
-    {
-      id: "student_id",
-      dataIndex: "student_id",
-      title: "student_id",
-    },
-    {
-      id: "name",
-      dataIndex: "name",
-      title: "name",
-    },
-    {
-      id: "email",
-      dataIndex: "email",
-      title: "email",
-    },
-    {
-      id: "branch_name",
-      dataIndex: "branch_name",
-      title: "Branch",
-    },
-    {
-      id: "phone",
-      dataIndex: "phone",
-      title: "phone",
-    },
-    {
-      id: "remaining_sub_count",
-      dataIndex: "remaining_sub_count",
-      title: "remaining sub count",
-    },
-    {
-      id: "student_score_in_placement_test",
-      dataIndex: "student_score_in_placement_test",
-      title: "placement test score",
-    },
-    {
-      title: "level status",
-      dataIndex: "level_status",
-      key: "level_status",
-      render: (text, row) => (
-        <Button
-          style={{ margin: "0px 10px" }}
-          onClick={() => openAddNoteModal(row)}
-        >
-          Add Complain or exception
-        </Button>
-      ),
-    },
-  ];
-
-  const columns_study_history = [
-    {
-      title: "level_id",
-      dataIndex: "level_id",
-      key: "level_id",
-    },
-    {
-      title: "level_name",
-      dataIndex: "level_name",
-      key: "level_name",
-      render: (text, row) => (
-        <p style={{ textTransform: "capitalize" }}>
-          {row?.level_data?.level_name}
-        </p>
-      ),
-    },
-    {
-      title: "Group Name",
-      dataIndex: "group_name",
-      key: "group_name",
-      render: (text, row) => (
-        <p style={{ textTransform: "capitalize" }}>
-          {row?.group_data?.group_name}
-        </p>
-      ),
-    },
-    {
-      title: "Round Name",
-      dataIndex: "round_name",
-      key: "round_name",
-      render: (text, row) => (
-        <p style={{ textTransform: "capitalize" }}>
-          {row?.group_data?.round_name}
-        </p>
-      ),
-    },
-    {
-      title: "Created at",
-      dataIndex: "created_at",
-      key: "created_at",
-      render: (text, row) => (
-        <p style={{ textTransform: "capitalize" }}>
-          {new Date(row.created_at).toLocaleDateString()}
-        </p>
-      ),
-    },
-    {
-      title: "level status",
-      dataIndex: "status",
-      key: "status",
-      render: (text, row) => (
-        <>
-          {row.status === "active" ? (
-            <p style={{ color: "green", textTransform: "capitalize" }}>
-              {row.status}
-            </p>
-          ) : (
-            <p style={{ color: "red", textTransform: "capitalize" }}>
-              {row.status}
-            </p>
-          )}
-        </>
-      ),
-    },
-    {
-      title: "Action",
-      dataIndex: "x",
-      key: "x",
-      render: (text, row) => (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-          className="flex items-center gap-2"
-        >
+  const columns = useMemo(
+    () => [
+      {
+        id: "student_id",
+        dataIndex: "student_id",
+        title: "student_id",
+      },
+      {
+        id: "name",
+        dataIndex: "name",
+        title: "name",
+      },
+      {
+        id: "email",
+        dataIndex: "email",
+        title: "email",
+      },
+      {
+        id: "branch_name",
+        dataIndex: "branch_name",
+        title: "Branch",
+      },
+      {
+        id: "phone",
+        dataIndex: "phone",
+        title: "phone",
+      },
+      {
+        id: "remaining_sub_count",
+        dataIndex: "remaining_sub_count",
+        title: "remaining sub count",
+      },
+      {
+        id: "student_score_in_placement_test",
+        dataIndex: "student_score_in_placement_test",
+        title: "placement test score",
+      },
+      {
+        title: "level status",
+        dataIndex: "level_status",
+        key: "level_status",
+        render: (text, row) => (
           <Button
-            style={{ marginRight: "10px" }}
-            onClick={() => openEditLevelGroupModal(row)}
+            style={{ margin: "0px 10px" }}
+            onClick={() => openAddNoteModal(row)}
           >
-            Edit Level & Group
+            Add Complain or exception
           </Button>
+        ),
+      },
+    ],
+    [openAddNoteModal]
+  );
 
-          <Button danger onClick={() => openRemoveModal(row)}>
-            Remove from group
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
-  const columns_study_score = [
-    {
-      title: "level_id",
-      dataIndex: "level_id",
-      key: "level_id",
-    },
-    {
-      title: "level_name",
-      dataIndex: "level_name",
-      key: "level_name",
-    },
-    {
-      title: "score",
-      dataIndex: "score_value",
-      key: "score_value",
-    },
-    {
-      title: "date solve",
-      dataIndex: "date_solve",
-      key: "date_solve",
-    },
-    {
-      title: "level status",
-      dataIndex: "level_status",
-      key: "level_status",
-      render: (text, row) => (
-        <>
-          {row.level_status === "active" ? (
-            <p style={{ color: "green", textTransform: "capitalize" }}>
-              {row.level_status}
-            </p>
-          ) : (
-            <p style={{ color: "red", textTransform: "capitalize" }}>
-              {row.level_status}
-            </p>
-          )}
-        </>
-      ),
-    },
-  ];
-
-  const Payment_columns = [
-    {
-      title: "payment id",
-      dataIndex: "payment_id",
-      key: "payment_id",
-    },
-    {
-      title: "payed",
-      dataIndex: "payed",
-      key: "payed",
-    },
-    {
-      title: "date",
-      dataIndex: "date",
-      key: "date",
-    },
-    {
-      title: "total price",
-      dataIndex: "total_price",
-      key: "total_price",
-    },
-    {
-      title: "status",
-      dataIndex: "status",
-      key: "status",
-    },
-    {
-      title: "Action",
-      dataIndex: "action",
-      key: "action",
-      render: (_, row) => (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <Button onClick={() => handlePrint(row)}>Print receipt</Button>
-          <Button onClick={() => openUpdateInvoiceModal(row)}>
-            Update All
-          </Button>
-          <Button
-            type="default"
+  const columns_study_history = useMemo(
+    () => [
+      {
+        title: "level_id",
+        dataIndex: "level_id",
+        key: "level_id",
+      },
+      {
+        title: "level_name",
+        dataIndex: "level_name",
+        key: "level_name",
+        render: (text, row) => (
+          <p style={{ textTransform: "capitalize" }}>
+            {row?.level_data?.level_name}
+          </p>
+        ),
+      },
+      {
+        title: "Group Name",
+        dataIndex: "group_name",
+        key: "group_name",
+        render: (text, row) => (
+          <p style={{ textTransform: "capitalize" }}>
+            {row?.group_data?.group_name}
+          </p>
+        ),
+      },
+      {
+        title: "Round Name",
+        dataIndex: "round_name",
+        key: "round_name",
+        render: (text, row) => (
+          <p style={{ textTransform: "capitalize" }}>
+            {row?.group_data?.round_name}
+          </p>
+        ),
+      },
+      {
+        title: "Created at",
+        dataIndex: "created_at",
+        key: "created_at",
+        render: (text, row) => (
+          <p style={{ textTransform: "capitalize" }}>
+            {new Date(row.created_at).toLocaleDateString()}
+          </p>
+        ),
+      },
+      {
+        title: "level status",
+        dataIndex: "status",
+        key: "status",
+        render: (text, row) => (
+          <>
+            {row.status === "active" ? (
+              <p style={{ color: "green", textTransform: "capitalize" }}>
+                {row.status}
+              </p>
+            ) : (
+              <p style={{ color: "red", textTransform: "capitalize" }}>
+                {row.status}
+              </p>
+            )}
+          </>
+        ),
+      },
+      {
+        title: "Action",
+        dataIndex: "x",
+        key: "x",
+        render: (text, row) => (
+          <div
             style={{
-              backgroundColor: "#faad14",
-              borderColor: "#faad14",
-              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
             }}
-            onClick={() => openUpdateDateModal(row)}
+            className="flex items-center gap-2"
           >
-            Update Date
-          </Button>
-        </div>
-      ),
-    },
-  ];
+            <Button
+              style={{ marginRight: "10px" }}
+              onClick={() => openEditLevelGroupModal(row)}
+            >
+              Edit Level & Group
+            </Button>
 
-  const Notes_columns = [
-    {
-      title: "#",
-      dataIndex: "exceptions_complains_id",
-      key: "exceptions_complains_id",
-    },
-    {
-      title: "Type",
-      dataIndex: "Type",
-      key: "Type",
-    },
-    {
-      title: "Text",
-      dataIndex: "Text",
-      key: "Text",
-    },
-    {
-      title: "Date",
-      dataIndex: "Date",
-      key: "Date",
-    },
-    {
-      title: "admin_name",
-      dataIndex: "admin_name",
-      key: "admin_name",
-    },
-  ];
+            <Button danger onClick={() => openRemoveModal(row)}>
+              Remove from group
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [openEditLevelGroupModal, openRemoveModal]
+  );
 
-  const absence_columns = [
-    {
-      title: "#",
-      dataIndex: "absence_id",
-      key: "absence_id",
-    },
-    {
-      title: "session_name",
-      dataIndex: "session_name",
-      key: "session_name",
-    },
-    {
-      title: "admin_name",
-      dataIndex: "admin_name",
-      key: "admin_name",
-    },
-  ];
+  const columns_study_score = useMemo(
+    () => [
+      {
+        title: "level_id",
+        dataIndex: "level_id",
+        key: "level_id",
+      },
+      {
+        title: "level_name",
+        dataIndex: "level_name",
+        key: "level_name",
+      },
+      {
+        title: "score",
+        dataIndex: "score_value",
+        key: "score_value",
+      },
+      {
+        title: "date solve",
+        dataIndex: "date_solve",
+        key: "date_solve",
+      },
+      {
+        title: "level status",
+        dataIndex: "level_status",
+        key: "level_status",
+        render: (text, row) => (
+          <>
+            {row.level_status === "active" ? (
+              <p style={{ color: "green", textTransform: "capitalize" }}>
+                {row.level_status}
+              </p>
+            ) : (
+              <p style={{ color: "red", textTransform: "capitalize" }}>
+                {row.level_status}
+              </p>
+            )}
+          </>
+        ),
+      },
+    ],
+    []
+  );
+
+  const Payment_columns = useMemo(
+    () => [
+      {
+        title: "payment id",
+        dataIndex: "payment_id",
+        key: "payment_id",
+      },
+      {
+        title: "payed",
+        dataIndex: "payed",
+        key: "payed",
+      },
+      {
+        title: "date",
+        dataIndex: "date",
+        key: "date",
+      },
+      {
+        title: "total price",
+        dataIndex: "total_price",
+        key: "total_price",
+      },
+      {
+        title: "status",
+        dataIndex: "status",
+        key: "status",
+      },
+      {
+        title: "Action",
+        dataIndex: "action",
+        key: "action",
+        render: (_, row) => (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <Button onClick={() => handlePrint(row)}>Print receipt</Button>
+            <Button onClick={() => openUpdateInvoiceModal(row)}>
+              Update All
+            </Button>
+            <Button
+              type="default"
+              style={{
+                backgroundColor: "#faad14",
+                borderColor: "#faad14",
+                color: "#fff",
+              }}
+              onClick={() => openUpdateDateModal(row)}
+            >
+              Update Date
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [handlePrint, openUpdateInvoiceModal, openUpdateDateModal]
+  );
+
+  const Notes_columns = useMemo(
+    () => [
+      {
+        title: "#",
+        dataIndex: "exceptions_complains_id",
+        key: "exceptions_complains_id",
+      },
+      {
+        title: "Type",
+        dataIndex: "Type",
+        key: "Type",
+      },
+      {
+        title: "Text",
+        dataIndex: "Text",
+        key: "Text",
+      },
+      {
+        title: "Date",
+        dataIndex: "Date",
+        key: "Date",
+      },
+      {
+        title: "admin_name",
+        dataIndex: "admin_name",
+        key: "admin_name",
+      },
+    ],
+    []
+  );
+
+  const absence_columns = useMemo(
+    () => [
+      {
+        title: "#",
+        dataIndex: "absence_id",
+        key: "absence_id",
+      },
+      {
+        title: "session_name",
+        dataIndex: "session_name",
+        key: "session_name",
+      },
+      {
+        title: "admin_name",
+        dataIndex: "admin_name",
+        key: "admin_name",
+      },
+    ],
+    []
+  );
 
   return (
     <>
