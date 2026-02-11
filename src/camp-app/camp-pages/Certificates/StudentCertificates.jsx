@@ -94,7 +94,7 @@ export const StudentCertificates = () => {
     formData.append("file_attachment", NewPdf);
     await axios
       .post(
-        "https://camp-coding.online/camp-for-english/admin/upload_pdf.php",
+        "https://campforenglish.net/camp_for_english/admin/upload_pdf.php",
         formData
       )
       .then((resPdf) => {

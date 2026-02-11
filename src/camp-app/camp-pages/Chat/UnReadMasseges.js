@@ -3,11 +3,14 @@ import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import io from "socket.io-client";
+// import io from "socket.io-client";
 
-const socket = io("https://camp-coding.tech", {
-  path: "/campForEnglishChat/socket.io",
-});
+const socket = {
+  on: () => {},
+  off: () => {},
+  emit: () => {},
+  connected: false,
+};
 
 export const UnReadMasseges = () => {
   const navigate = useNavigate();

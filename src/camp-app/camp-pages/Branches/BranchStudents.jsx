@@ -114,9 +114,9 @@ export default function BranchStudents() {
     onFilter: (value, record) =>
       record[dataIndex]
         ? record[dataIndex]
-          .toString()
-          .toLowerCase()
-          .includes(value.toLowerCase())
+            .toString()
+            .toLowerCase()
+            .includes(value.toLowerCase())
         : "",
     render: (text) =>
       searchedColumn === dataIndex ? (
@@ -214,7 +214,7 @@ export default function BranchStudents() {
             onClick={() => {
               {
                 row?.remaining_sub_count == 0 ||
-                  row?.remaining_sub_count == "not subscription yet"
+                row?.remaining_sub_count == "not subscription yet"
                   ? setAddNotSubscribedStudentSub(row)
                   : setAddStudentSub(row);
                 setNewSubscriptionData({
@@ -271,7 +271,7 @@ export default function BranchStudents() {
     setExceptionLoading(true);
     axios
       .post(
-        "https://camp-coding.online/camp-for-english/admin/complains_exceptions/select_students_complains_exceptions.php",
+        "https://campforenglish.net/camp_for_english/admin/complains_exceptions/select_students_complains_exceptions.php",
         data_send
       )
       .then((res) => {

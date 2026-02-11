@@ -199,9 +199,9 @@ export default function Levels() {
     onFilter: (value, record) =>
       record[dataIndex]
         ? record[dataIndex]
-          .toString()
-          .toLowerCase()
-          .includes(value.toLowerCase())
+            .toString()
+            .toLowerCase()
+            .includes(value.toLowerCase())
         : "",
     render: (text) =>
       searchedColumn === dataIndex ? (
@@ -234,11 +234,11 @@ export default function Levels() {
                 to={`${process.env.PUBLIC_URL}/levels/${row?.level_id}/sections`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-              // onClick={() =>
-              //   navigate(
-              //     `${process.env.PUBLIC_URL}/levels/${row?.level_id}/sections`
-              //   )
-              // }
+                // onClick={() =>
+                //   navigate(
+                //     `${process.env.PUBLIC_URL}/levels/${row?.level_id}/sections`
+                //   )
+                // }
               >
                 Sections
               </Link>
@@ -522,7 +522,7 @@ export default function Levels() {
       formData.append("file_attachment", AttchmentPdf);
       await axios
         .post(
-          "https://camp-coding.online/camp-for-english/admin/upload_pdf.php",
+          "https://campforenglish.net/camp_for_english/admin/upload_pdf.php",
           formData
         )
         .then((resPdf) => {
@@ -565,7 +565,7 @@ export default function Levels() {
       formData.append("voice", audioUrl);
       await axios
         .post(
-          "https://camp-coding.online/camp-for-english/admin/upload_voice.php",
+          "https://campforenglish.net/camp_for_english/admin/upload_voice.php",
           formData
         )
 

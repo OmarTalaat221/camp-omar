@@ -419,7 +419,7 @@ export default function ListStudents() {
     setExceptionLoading(true);
     axios
       .post(
-        "https://camp-coding.online/camp-for-english/admin/complains_exceptions/select_students_complains_exceptions.php",
+        "https://campforenglish.net/camp_for_english/admin/complains_exceptions/select_students_complains_exceptions.php",
         data_send
       )
       .then((res) => {
@@ -1066,12 +1066,12 @@ export default function ListStudents() {
                   border: "2px solid #eb5d22",
                   borderRight:
                     rowData?.remaining_sub_count !== 0 &&
-                      rowData?.remaining_sub_count !== "not subscription yet"
+                    rowData?.remaining_sub_count !== "not subscription yet"
                       ? "none"
                       : "2px solid #eb5d22",
                   borderRadius:
                     rowData?.remaining_sub_count !== 0 &&
-                      rowData?.remaining_sub_count !== "not subscription yet"
+                    rowData?.remaining_sub_count !== "not subscription yet"
                       ? "0"
                       : "0 8px 8px 0",
                   backgroundColor:
@@ -1135,15 +1135,15 @@ export default function ListStudents() {
             >
               {paymentMode == "assign_now" || paymentMode == "assign_later"
                 ? packages.map((pkg) => (
-                  <Option key={pkg.package_id} value={pkg.package_id}>
-                    {pkg?.title} - {pkg.num_of_levels} - {pkg.price}
-                  </Option>
-                ))
+                    <Option key={pkg.package_id} value={pkg.package_id}>
+                      {pkg?.title} - {pkg.num_of_levels} - {pkg.price}
+                    </Option>
+                  ))
                 : packagesStudent?.map((pkg) => (
-                  <Option key={pkg.package_id} value={pkg.package_id}>
-                    {pkg?.title} - {pkg.num_of_levels} - {pkg.price}
-                  </Option>
-                ))}
+                    <Option key={pkg.package_id} value={pkg.package_id}>
+                      {pkg?.title} - {pkg.num_of_levels} - {pkg.price}
+                    </Option>
+                  ))}
             </Select>
           </div>
 
@@ -1170,56 +1170,56 @@ export default function ListStudents() {
           {/* Level and Group Selection */}
           {(paymentMode === "assign_now" ||
             paymentMode === "assign_group_level") && (
-              <>
-                <div className="form_field" style={{ marginBottom: "16px" }}>
-                  <label className="form_label" style={{ marginBottom: "8px" }}>
-                    Select Level
-                  </label>
-                  <Select
-                    placeholder="Select a level"
-                    style={{ width: "100%" }}
-                    value={NewSubscriptionData?.level_id || undefined}
-                    onChange={handleLevelChange}
-                  >
-                    {Levels.map((level) => (
-                      <Option key={level.level_id} value={level.level_id}>
-                        {level.level_name}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
+            <>
+              <div className="form_field" style={{ marginBottom: "16px" }}>
+                <label className="form_label" style={{ marginBottom: "8px" }}>
+                  Select Level
+                </label>
+                <Select
+                  placeholder="Select a level"
+                  style={{ width: "100%" }}
+                  value={NewSubscriptionData?.level_id || undefined}
+                  onChange={handleLevelChange}
+                >
+                  {Levels.map((level) => (
+                    <Option key={level.level_id} value={level.level_id}>
+                      {level.level_name}
+                    </Option>
+                  ))}
+                </Select>
+              </div>
 
-                <div className="form_field" style={{ marginBottom: "16px" }}>
-                  <label className="form_label" style={{ marginBottom: "8px" }}>
-                    Select Group
-                  </label>
-                  <Select
-                    placeholder="Select a group"
-                    style={{ width: "100%" }}
-                    value={NewSubscriptionData?.group_id || undefined}
-                    onChange={(value) =>
-                      setNewSubscriptionData({
-                        ...NewSubscriptionData,
-                        group_id: value,
-                      })
-                    }
-                    loading={groupsLoading}
-                    disabled={!NewSubscriptionData?.level_id}
-                    notFoundContent={
-                      groupsLoading
-                        ? "Loading..."
-                        : "No groups found for this level"
-                    }
-                  >
-                    {groupOptions.map((group) => (
-                      <Option key={group.group_id} value={group.group_id}>
-                        {group.group_name}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-              </>
-            )}
+              <div className="form_field" style={{ marginBottom: "16px" }}>
+                <label className="form_label" style={{ marginBottom: "8px" }}>
+                  Select Group
+                </label>
+                <Select
+                  placeholder="Select a group"
+                  style={{ width: "100%" }}
+                  value={NewSubscriptionData?.group_id || undefined}
+                  onChange={(value) =>
+                    setNewSubscriptionData({
+                      ...NewSubscriptionData,
+                      group_id: value,
+                    })
+                  }
+                  loading={groupsLoading}
+                  disabled={!NewSubscriptionData?.level_id}
+                  notFoundContent={
+                    groupsLoading
+                      ? "Loading..."
+                      : "No groups found for this level"
+                  }
+                >
+                  {groupOptions.map((group) => (
+                    <Option key={group.group_id} value={group.group_id}>
+                      {group.group_name}
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+            </>
+          )}
 
           {(paymentMode == "assign_now" || paymentMode == "assign_later") && (
             <div className="form_field">

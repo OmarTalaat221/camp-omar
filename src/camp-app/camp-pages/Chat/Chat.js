@@ -23,16 +23,12 @@ import {
 
 const backendUrl = "https://camp-coding.tech";
 
-const socket = io(backendUrl, {
-  path: "/campForEnglishChat/socket.io",
-  timeout: 180000,
-  forceNew: true,
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-});
-
+const socket = {
+  on: () => {},
+  off: () => {},
+  emit: () => {},
+  connected: false,
+};
 // Document type detection helper
 const getDocumentInfo = (fileOrUrl) => {
   let extension = "";

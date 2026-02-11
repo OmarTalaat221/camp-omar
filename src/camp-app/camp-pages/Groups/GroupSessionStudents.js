@@ -42,37 +42,37 @@ const GroupSessionStudents = () => {
       ),
     },
 
-    {
-      id: "Action",
-      dataIndex: "x",
-      title: "Action",
-      render: (text, row) => (
-        <>
-          <Button
-            onClick={() => handleTakeStudentAbsence(row?.student_id)}
-            disabled={IsConfirmed}
-            type={row.taken_before ? "default" : "primary"}
-            color="primary btn-pill"
-          >
-            {row.taken_before ? "Remove Absence" : "Take Absence"}
-          </Button>
+    // {
+    //   id: "Action",
+    //   dataIndex: "x",
+    //   title: "Action",
+    //   render: (text, row) => (
+    //     <>
+    //       <Button
+    //         onClick={() => handleTakeStudentAbsence(row?.student_id)}
+    //         disabled={IsConfirmed}
+    //         type={row.taken_before ? "default" : "primary"}
+    //         color="primary btn-pill"
+    //       >
+    //         {row.taken_before ? "Remove Absence" : "Take Absence"}
+    //       </Button>
 
-          <Button
-            style={{ margin: "0px 10px" }}
-            onClick={() =>
-              navigate(
-                `${process.env.PUBLIC_URL}/groups/${row?.group_id}/students/${row?.student_id}/chat`,
-                {
-                  state: { additionalData: row },
-                }
-              )
-            }
-          >
-            Chat with student
-          </Button>
-        </>
-      ),
-    },
+    //       <Button
+    //         style={{ margin: "0px 10px" }}
+    //         onClick={() =>
+    //           navigate(
+    //             `${process.env.PUBLIC_URL}/groups/${row?.group_id}/students/${row?.student_id}/chat`,
+    //             {
+    //               state: { additionalData: row },
+    //             }
+    //           )
+    //         }
+    //       >
+    //         Chat with student
+    //       </Button>
+    //     </>
+    //   ),
+    // },
   ];
 
   function handleGetGroupSessionsStudents() {

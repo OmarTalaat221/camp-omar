@@ -17,7 +17,7 @@ const Certification = (data) => {
   const getData = async () => {
     try {
       const response = await axios.post(
-        "https://camp-coding.online/camp-for-english/admin/certificateData.php",
+        "https://campforenglish.net/camp_for_english/admin/certificateData.php",
         { student_id }
       );
 

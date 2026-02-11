@@ -72,7 +72,7 @@ const GroupStudents = () => {
       title: "Action",
       render: (text, row) => (
         <>
-          <Button
+          {/* <Button
             style={{ margin: "0px 10px" }}
             onClick={() =>
               navigate(
@@ -84,7 +84,7 @@ const GroupStudents = () => {
             }
           >
             Chat with student
-          </Button>
+          </Button> */}
 
           <>
             <Button

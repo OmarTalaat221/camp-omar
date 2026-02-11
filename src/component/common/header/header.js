@@ -28,13 +28,16 @@ import { Row, Col, Form, FormGroup, Button } from "reactstrap";
 import { MENUITEMS } from "../sidebar/menu";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import io from "socket.io-client";
+// import io from "socket.io-client";
 import { useNotification } from "../../../context/NotificationContext";
 // import { useNotification } from "../../../component/notifications/NotificationProvider";
 
-const socket = io("https://camp-coding.tech", {
-  path: "/campForEnglishChat/socket.io",
-});
+const socket = {
+  on: () => {},
+  off: () => {},
+  emit: () => {},
+  connected: false,
+};
 
 const Header = (props) => {
   const history = useNavigate();
@@ -348,7 +351,7 @@ const Header = (props) => {
           <ul className="nav-menus">
             {/* Push Notifications Indicator */}
 
-            <div
+            {/* <div
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -387,7 +390,7 @@ const Header = (props) => {
                 </span>
               </i>
               Messages
-            </div>
+            </div> */}
 
             <li></li>
             <li className="onhover-dropdown">
