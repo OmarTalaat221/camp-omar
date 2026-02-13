@@ -311,7 +311,7 @@ export default function Levels() {
       dataIndex: "x",
       render: (text, row) => (
         <>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {row?.show_exam_status == "0" && (
               <FaEyeSlash
                 className="hide_content"
@@ -356,6 +356,7 @@ export default function Levels() {
             Add Exam Attachment
           </Button>
           <Button
+            disabled={!row?.exam_attach_link}
             style={{ margin: "0px 10px" }}
             onClick={() => setShowExamAttachmentModal(row)}
           >
@@ -917,7 +918,7 @@ export default function Levels() {
       </Modal>
 
       <Modal
-        title="show Exam AttachmentModal"
+        title="Show Exam Attachment"
         open={ShowExamAttachmentModal}
         onCancel={() => setShowExamAttachmentModal(null)}
         footer={[
@@ -926,41 +927,58 @@ export default function Levels() {
           </Button>,
         ]}
       >
-        {ShowExamAttachmentModal?.exam_attach_type == "pdf" ? (
+        {/* Check if there's an attachment first */}
+        {ShowExamAttachmentModal?.exam_attach_link ? (
           <>
-            <div className="form_field">
-              <label className="form_label">pdf</label>
-              <FaBook
-                onClick={() =>
-                  window.open(ShowExamAttachmentModal?.exam_attach_link)
-                }
+            {ShowExamAttachmentModal?.exam_attach_type === "pdf" ? (
+              <div className="form_field">
+                <label className="form_label">PDF Attachment:</label>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  <FaBook
+                    onClick={() =>
+                      window.open(
+                        ShowExamAttachmentModal?.exam_attach_link,
+                        "_blank"
+                      )
+                    }
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      color: "orange",
+                      cursor: "pointer",
+                    }}
+                  />
+                  <span>Click to view PDF</span>
+                </div>
+              </div>
+            ) : ShowExamAttachmentModal?.exam_attach_type === "voice" ? (
+              <div
                 style={{
-                  width: "30px",
-                  height: "30px",
-                  color: "orange",
-                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  justifyContent: "space-around",
+                  margin: "10px 0",
                 }}
-              />
-            </div>
+              >
+                <label className="form_label">Voice Attachment:</label>
+                <audio
+                  controls
+                  src={ShowExamAttachmentModal?.exam_attach_link}
+                />
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <p>Unknown attachment type</p>
+              </div>
+            )}
           </>
         ) : (
-          <>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                justifyContent: "space-around",
-                margin: "10px 0",
-              }}
-            >
-              <label className="form_label">Recorded Audio :</label>
-              <audio
-                controls
-                src={ShowExamAttachmentModal?.exam_attach_link}
-              ></audio>
-            </div>
-          </>
+          <div style={{ textAlign: "center", padding: "20px" }}>
+            <p>No attachment available for this level</p>
+          </div>
         )}
       </Modal>
 

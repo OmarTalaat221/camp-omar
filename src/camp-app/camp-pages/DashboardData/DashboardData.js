@@ -15,29 +15,25 @@ import { BASE_URL } from "../../../Api/baseUrl";
 import axios from "axios";
 import { BsSearch } from "react-icons/bs";
 
-
 export const DashboardData = () => {
-  const[BranchsData,setBranchesData]=useState([])
-  const[DashboardData,setDashboardData]=useState([])
+  const [BranchsData, setBranchesData] = useState([]);
+  const [DashboardData, setDashboardData] = useState([]);
 
-
-  
   function handleGetStatictis() {
     axios
       .get(BASE_URL + "/admin/dashboard/stats.php")
       .then((res) => {
         console.log(res);
-        setDashboardData(res?.data)
+        setDashboardData(res?.data);
         setBranchesData(res?.data?.branches);
-        
       })
       .catch((e) => console.log(e));
-  }  
+  }
 
-  useEffect(()=>{
-    handleGetStatictis()
-  },[])
-  
+  useEffect(() => {
+    handleGetStatictis();
+  }, []);
+
   const [filteredData, setFilteredData] = useState(BranchsData);
 
   const handleTableChange = (pagination, filters, sorter, extra) => {
@@ -63,12 +59,19 @@ export const DashboardData = () => {
   };
 
   const getColumnSearchProps = (dataIndex) => ({
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+    filterDropdown: ({
+      setSelectedKeys,
+      selectedKeys,
+      confirm,
+      clearFilters,
+    }) => (
       <div style={{ padding: 8 }}>
         <Input
           placeholder={`Search ${dataIndex}`}
           value={selectedKeys[0]}
-          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onChange={(e) =>
+            setSelectedKeys(e.target.value ? [e.target.value] : [])
+          }
           onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
           style={{ marginBottom: 8, display: "block" }}
         />
@@ -95,7 +98,10 @@ export const DashboardData = () => {
     ),
     onFilter: (value, record) =>
       record[dataIndex]
-        ? record[dataIndex].toString().toLowerCase().includes(value.toLowerCase())
+        ? record[dataIndex]
+            .toString()
+            .toLowerCase()
+            .includes(value.toLowerCase())
         : "",
     render: (text) =>
       searchedColumn === dataIndex ? (
@@ -110,7 +116,7 @@ export const DashboardData = () => {
       id: "branch_name",
       dataIndex: "branch_name",
       title: "branches",
-      ...getColumnSearchProps("branch_name")
+      ...getColumnSearchProps("branch_name"),
     },
     {
       id: "new_students",
@@ -169,7 +175,7 @@ export const DashboardData = () => {
       render: (text, row) => {
         return (
           <p style={{ color: "blue" }}>
-            { row.total -  row?.expenses - row?.refunds}
+            {row.total - row?.expenses - row?.refunds}
           </p>
         );
       },
@@ -231,10 +237,10 @@ export const DashboardData = () => {
     },
   ];
 
-
-
   const handleExport = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredData && filteredData.length > 0 ? filteredData : BranchsData); // Convert JSON to Excel sheet
+    const worksheet = XLSX.utils.json_to_sheet(
+      filteredData && filteredData.length > 0 ? filteredData : BranchsData
+    ); // Convert JSON to Excel sheet
     const workbook = XLSX.utils.book_new(); // Create a new workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, "Students"); // Append the sheet
     XLSX.writeFile(workbook, "students_data.xlsx"); // Export the workbook as a file
@@ -253,7 +259,7 @@ export const DashboardData = () => {
                   display: "grid",
                   gridTemplateColumns: "repeat(3, 1fr)",
                   gap: "15px",
-                  padding: "20px"
+                  padding: "20px",
                 }}
               >
                 {dashboardData.map((data) => {
@@ -276,9 +282,10 @@ export const DashboardData = () => {
                 })}
               </div>
 
+              <div className="card-body" style={{ overflowX: "auto" }}>
                 <button
-                  style={{ 
-                    marginTop: "10px",
+                  style={{
+                    marginBottom: "10px",
                     width: "fit-content",
                     padding: "8px 30px",
                     backgroundColor: "#41d607",
@@ -286,19 +293,21 @@ export const DashboardData = () => {
                     border: "none",
                     borderRadius: "5px",
                     cursor: "pointer",
-                    transition: "all 0.3s ease"
+                    transition: "all 0.3s ease",
                   }}
-                  onMouseOver={(e) => e.target.style.backgroundColor = "#35b005"}
-                  onMouseOut={(e) => e.target.style.backgroundColor = "#41d607"}
+                  onMouseOver={(e) =>
+                    (e.target.style.backgroundColor = "#35b005")
+                  }
+                  onMouseOut={(e) =>
+                    (e.target.style.backgroundColor = "#41d607")
+                  }
                   onClick={handleExport}
                 >
                   Export to Excel
                 </button>
-   
-              <div className="card-body" style={{ overflowX: "auto" }}>
                 <Table
                   rowKey={(record) => record.student_id}
-                  onChange={handleTableChange} 
+                  onChange={handleTableChange}
                   scroll={{
                     x: "max-content",
                   }}
@@ -308,7 +317,8 @@ export const DashboardData = () => {
                     responsive: true,
                     pageSize: 10,
                     showSizeChanger: true,
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
+                    showTotal: (total, range) =>
+                      `${range[0]}-${range[1]} of ${total} items`,
                   }}
                 />
               </div>

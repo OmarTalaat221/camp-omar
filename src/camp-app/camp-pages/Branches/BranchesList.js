@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import { Button, Dropdown, Modal, Table } from "antd";
-import { render } from "@testing-library/react";
 import { BASE_URL } from "../../../Api/baseUrl";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -9,18 +8,61 @@ import { FaEllipsisVertical } from "react-icons/fa6";
 import { Link, useNavigate } from "react-router-dom";
 
 const BranchesList = () => {
+  // Data States
   const [Branches, setBranches] = useState([]);
-  const [AddBranchModal, setAddBranchModal] = useState(false);
-  const [NewBranchData, setNewBranchData] = useState({
+  const [selectedBranch, setSelectedBranch] = useState(null);
+
+  // Modal States (boolean only)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Loading States
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const initialBranchData = {
     branch_name: null,
     phone: null,
     location: "",
-  });
+  };
 
-  const [DeleteBranchModal, setDeleteBranchModal] = useState(null);
-  const [EditBranchModal, setEditBranchModal] = useState(null);
+  const [NewBranchData, setNewBranchData] = useState(initialBranchData);
 
   const navigate = useNavigate();
+
+  // Modal Control Functions
+  const openAddModal = () => {
+    setNewBranchData(initialBranchData);
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setNewBranchData(initialBranchData);
+  };
+
+  const openEditModal = (row) => {
+    setSelectedBranch({ ...row });
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedBranch(null);
+  };
+
+  const openDeleteModal = (row) => {
+    setSelectedBranch(row);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setSelectedBranch(null);
+  };
 
   const columns = [
     {
@@ -53,12 +95,6 @@ const BranchesList = () => {
               <Link
                 to={`${process.env.PUBLIC_URL}/branches/${row?.branch_id}/students`}
                 className="btn btn-primary text-white"
-                // onClick={() => {
-                //   // setDeleteBranchModal(row);
-                //   navigate(
-
-                //   );
-                // }}
               >
                 Branch students
               </Link>
@@ -70,12 +106,6 @@ const BranchesList = () => {
               <Link
                 to={`${process.env.PUBLIC_URL}/branches/${row?.branch_id}/Roundes`}
                 className="btn btn-primary text-white"
-                onClick={() => {
-                  // setDeleteBranchModal(row);
-                  // navigate(
-                  //
-                  // );
-                }}
               >
                 Branch Rounds
               </Link>
@@ -86,9 +116,7 @@ const BranchesList = () => {
             label: (
               <button
                 className="btn btn-primary"
-                onClick={() => {
-                  setDeleteBranchModal(row);
-                }}
+                onClick={() => openDeleteModal(row)}
               >
                 Delete branch
               </button>
@@ -99,9 +127,7 @@ const BranchesList = () => {
             label: (
               <button
                 className="btn btn-primary"
-                onClick={() => {
-                  setEditBranchModal(row);
-                }}
+                onClick={() => openEditModal(row)}
               >
                 Edit branch
               </button>
@@ -129,6 +155,7 @@ const BranchesList = () => {
   ];
 
   function handleGetBranches() {
+    setFetchLoading(true);
     axios
       .get(BASE_URL + "/admin/branches/select_branch.php")
       .then((res) => {
@@ -137,7 +164,8 @@ const BranchesList = () => {
           setBranches(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => console.log(e))
+      .finally(() => setFetchLoading(false));
   }
 
   useEffect(() => {
@@ -150,6 +178,8 @@ const BranchesList = () => {
       phone: NewBranchData.phone,
       location: NewBranchData?.location,
     };
+
+    setAddLoading(true);
     axios
       .post(
         BASE_URL + "/admin/branches/add_branch.php",
@@ -159,19 +189,25 @@ const BranchesList = () => {
         console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res?.data?.message);
-          setAddBranchModal(false);
+          closeAddModal();
           handleGetBranches();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("Something went wrong!");
+      })
+      .finally(() => setAddLoading(false));
   }
 
   function handleDeleteBranch() {
     const dataSend = {
-      branch_id: DeleteBranchModal.branch_id,
+      branch_id: selectedBranch?.branch_id,
     };
+
+    setDeleteLoading(true);
     axios
       .post(
         BASE_URL + "/admin/branches/delete_branch.php",
@@ -181,22 +217,28 @@ const BranchesList = () => {
         console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res?.data?.message);
-          setDeleteBranchModal(null);
+          closeDeleteModal();
           handleGetBranches();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("Something went wrong!");
+      })
+      .finally(() => setDeleteLoading(false));
   }
 
   function handelEditBranch() {
     const dataSend = {
-      branch_id: EditBranchModal.branch_id,
-      branch_name: EditBranchModal.branch_name,
-      phone: EditBranchModal.phone,
-      location: EditBranchModal.location,
+      branch_id: selectedBranch?.branch_id,
+      branch_name: selectedBranch?.branch_name,
+      phone: selectedBranch?.phone,
+      location: selectedBranch?.location,
     };
+
+    setEditLoading(true);
     axios
       .post(
         BASE_URL + "/admin/branches/edit_branch.php",
@@ -206,13 +248,17 @@ const BranchesList = () => {
         console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res?.data?.message);
-          setEditBranchModal(null);
+          closeEditModal();
           handleGetBranches();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("Something went wrong!");
+      })
+      .finally(() => setEditLoading(false));
   }
 
   return (
@@ -227,18 +273,20 @@ const BranchesList = () => {
                 <Button
                   color="primary btn-pill"
                   style={{ margin: "10px 0" }}
-                  onClick={() => setAddBranchModal(true)}
+                  onClick={openAddModal}
                 >
-                  Add Branche
+                  Add Branch
                 </Button>
               </div>
               <div className="card-body">
                 <Table
+                  loading={fetchLoading}
                   scroll={{
                     x: "max-content",
                   }}
                   columns={columns}
                   dataSource={Branches}
+                  rowKey="branch_id"
                 />
               </div>
             </div>
@@ -250,19 +298,23 @@ const BranchesList = () => {
 
       <Modal
         title="Add Branch"
-        open={AddBranchModal}
+        open={isAddModalOpen}
         footer={
           <>
             <Button
+              type="primary"
               style={{ margin: "0px 10px " }}
+              loading={addLoading}
               onClick={() => handleAddNewBranch()}
             >
               Add
             </Button>
-            <Button onClick={() => setAddBranchModal(false)}>Cancel</Button>
+            <Button onClick={closeAddModal} disabled={addLoading}>
+              Cancel
+            </Button>
           </>
         }
-        onCancel={() => setAddBranchModal(false)}
+        onCancel={closeAddModal}
       >
         <>
           <div className="form_field">
@@ -270,6 +322,7 @@ const BranchesList = () => {
             <input
               type="text"
               className="form_input"
+              value={NewBranchData.branch_name || ""}
               onChange={(e) => {
                 setNewBranchData({
                   ...NewBranchData,
@@ -283,6 +336,7 @@ const BranchesList = () => {
             <input
               type="text"
               className="form_input"
+              value={NewBranchData.location || ""}
               onChange={(e) => {
                 setNewBranchData({
                   ...NewBranchData,
@@ -296,6 +350,7 @@ const BranchesList = () => {
             <input
               type="number"
               className="form_input"
+              value={NewBranchData.phone || ""}
               onChange={(e) => {
                 setNewBranchData({
                   ...NewBranchData,
@@ -311,19 +366,24 @@ const BranchesList = () => {
 
       <Modal
         title="Delete branch"
-        open={DeleteBranchModal}
+        open={isDeleteModalOpen}
         footer={
           <>
             <Button
+              type="primary"
+              danger
               style={{ margin: "0px 10px " }}
-              onClick={() => handleDeleteBranch(DeleteBranchModal?.branch_id)}
+              loading={deleteLoading}
+              onClick={handleDeleteBranch}
             >
               Delete
             </Button>
-            <Button onClick={() => setDeleteBranchModal(null)}>Cancel</Button>
+            <Button onClick={closeDeleteModal} disabled={deleteLoading}>
+              Cancel
+            </Button>
           </>
         }
-        onCancel={() => setDeleteBranchModal(null)}
+        onCancel={closeDeleteModal}
       >
         <h3>Are you sure that you want to delete this branch</h3>
       </Modal>
@@ -332,64 +392,70 @@ const BranchesList = () => {
 
       <Modal
         title="Edit Branch"
-        open={EditBranchModal}
+        open={isEditModalOpen}
         footer={
           <>
             <Button
+              type="primary"
               style={{ margin: "0px 10px " }}
+              loading={editLoading}
               onClick={() => handelEditBranch()}
             >
               Edit
             </Button>
-            <Button onClick={() => setEditBranchModal(null)}>Cancel</Button>
+            <Button onClick={closeEditModal} disabled={editLoading}>
+              Cancel
+            </Button>
           </>
         }
-        onCancel={() => setEditBranchModal(null)}
+        onCancel={closeEditModal}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">Branch Name</label>
-            <input
-              type="text"
-              className="form_input"
-              value={EditBranchModal?.branch_name || ""}
-              onChange={(e) => {
-                setEditBranchModal({
-                  ...EditBranchModal,
-                  branch_name: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Branch location</label>
-            <input
-              type="text"
-              className="form_input"
-              value={EditBranchModal?.location || ""}
-              onChange={(e) => {
-                setEditBranchModal({
-                  ...EditBranchModal,
-                  location: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">phone</label>
-            <input
-              type="text"
-              className="form_input"
-              value={EditBranchModal?.phone || ""}
-              onChange={(e) => {
-                setEditBranchModal({
-                  ...EditBranchModal,
-                  phone: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
+        {selectedBranch && (
+          <>
+            <div className="form_field">
+              <label className="form_label">Branch Name</label>
+              <input
+                type="text"
+                className="form_input"
+                value={selectedBranch?.branch_name || ""}
+                onChange={(e) => {
+                  setSelectedBranch({
+                    ...selectedBranch,
+                    branch_name: e.target.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">Branch location</label>
+              <input
+                type="text"
+                className="form_input"
+                value={selectedBranch?.location || ""}
+                onChange={(e) => {
+                  setSelectedBranch({
+                    ...selectedBranch,
+                    location: e.target.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">phone</label>
+              <input
+                type="text"
+                className="form_input"
+                value={selectedBranch?.phone || ""}
+                onChange={(e) => {
+                  setSelectedBranch({
+                    ...selectedBranch,
+                    phone: e.target.value,
+                  });
+                }}
+              />
+            </div>
+          </>
+        )}
       </Modal>
     </>
   );

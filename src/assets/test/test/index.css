@@ -14840,7 +14840,7 @@ table tbody .border-bottom-warning td {
   letter-spacing: 1px;
 }
 .card .card-body {
-  padding: 50px;
+  padding: 20px !important;
   background-color: transparent;
 }
 .card .card-body .rounded {
@@ -68668,3 +68668,7 @@ body.swal2-toast-shown .swal2-container.swal2-bottom-end, body.swal2-toast-shown
 .row {
   margin: auto !important;
 }/*# sourceMappingURL=index.css.map */
+
+:where(.css-dev-only-do-not-override-mncuj7).ant-form-item{
+  margin-bottom: 12px !important;
+}

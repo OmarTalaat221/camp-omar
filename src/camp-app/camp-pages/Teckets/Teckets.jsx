@@ -1,10 +1,10 @@
-import {Table} from "antd";
+import { Table } from "antd";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
-import {useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import {BASE_URL} from "../../../Api/baseUrl";
-import {render} from "@testing-library/react";
-import {useNavigate} from "react-router-dom";
+import { BASE_URL } from "../../../Api/baseUrl";
+import { render } from "@testing-library/react";
+import { useNavigate } from "react-router-dom";
 
 const Teckets = () => {
   const [teckets, setTeckets] = useState([]);
@@ -18,7 +18,7 @@ const Teckets = () => {
     {
       id: "student_data",
       dataIndex: "student_data",
-      title: "Tecket from ",
+      title: "Ticket from ",
       render: (text, row) => {
         return <div>{row.student_data.name}</div>;
       },
@@ -26,7 +26,7 @@ const Teckets = () => {
     {
       id: "Email",
       dataIndex: "student_data",
-      title: "Tecket from ",
+      title: "Ticket from ",
       render: (text, row) => {
         return <div>{row.student_data.email}</div>;
       },
@@ -34,7 +34,7 @@ const Teckets = () => {
     {
       id: "",
       dataIndex: "student_level_sub",
-      title: "stuendent level ",
+      title: "student level ",
       render: (text, row) => {
         return <div>{row.student_level_sub}</div>;
       },
@@ -61,13 +61,13 @@ const Teckets = () => {
       render: (text, row) => {
         return (
           <button
-            className='btn btn-primary'
-            style={{width: "100%"}}
+            className="btn btn-primary"
+            style={{ width: "100%" }}
             onClick={() =>
               navigate(
                 `${process.env.PUBLIC_URL}/teckets/${row?.question_id}`,
                 {
-                  state: {tecketData: row},
+                  state: { tecketData: row },
                 }
               )
             }
@@ -88,10 +88,6 @@ const Teckets = () => {
     setFilteredData(filtereName);
   };
 
-
-
-
-
   function handleSelectTeckets() {
     axios
       .get(BASE_URL + "/admin/students_questions/select_student_questions.php")
@@ -111,15 +107,15 @@ const Teckets = () => {
 
   return (
     <>
-      <Breadcrumbs parent='Technical support' title='teckets' />
-      <div className='container-fluid'>
-        <div className='row'>
-          <div className='col-sm-12'>
-            <div className='card'>
-              <div className='card-header'>
-                <h5>Teckets List</h5>
+      <Breadcrumbs parent="Technical support" title="tickets" />
+      <div className="container-fluid">
+        <div className="row">
+          <div className="col-sm-12">
+            <div className="card">
+              <div className="card-header">
+                <h5>Tickets List</h5>
               </div>
-              <div className='card-body'>
+              <div className="card-body">
                 <Table columns={columns} dataSource={teckets} />
               </div>
             </div>

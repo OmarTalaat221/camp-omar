@@ -1,4 +1,4 @@
-import { Button, Dropdown, Modal, Select, Table } from "antd";
+import { Button, Dropdown, Modal, Select, Table, Form, Input } from "antd";
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import axios from "axios";
@@ -8,6 +8,10 @@ import { toast } from "react-toastify";
 import { FaEllipsisVertical } from "react-icons/fa6";
 
 const Permessions = () => {
+  // ✅ NEW: Form instances
+  const [addForm] = Form.useForm();
+  const [editForm] = Form.useForm();
+
   const accessOptions = [
     { label: "Absence", access: "absence" },
     { label: "Admins", access: "admins" },
@@ -26,69 +30,20 @@ const Permessions = () => {
     { label: "Tracks", access: "tracks" },
   ];
 
-  const INSTRUCTOR_DEFAULT_ACCESS = ["absence", "groups", "students"];
-
   const [Admins, setAdmins] = useState([]);
   const [allBranches, setAllBranches] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ SEPARATED: Modal visibility states
+  // Modal visibility states
   const [AddAdminModal, setAddAdminModal] = useState(false);
   const [EditAdminModal, setEditAdminModal] = useState(false);
   const [AddAdminForGroupModal, setAddAdminForGroupModal] = useState(false);
   const [DeleteAdminModal, setDeleteAdminModal] = useState(false);
 
-  // ✅ SEPARATED: Data states
-  const [AddAdminData, setAddAdminData] = useState({
-    name: null,
-    email: null,
-    password: null,
-    permissions: null,
-    type: null,
-    admin_branch: "",
-    access: [],
-  });
-
+  // Data states
   const [EditAdminData, setEditAdminData] = useState(null);
   const [AddAdminForGroupData, setAddAdminForGroupData] = useState(null);
   const [DeleteAdminData, setDeleteAdminData] = useState(null);
-
-  // ✅ Auto-assign instructor permissions when type changes
-  useEffect(() => {
-    if (AddAdminData?.type === "instructor") {
-      const currentAccess = AddAdminData?.access || [];
-      const hasAllDefaults = INSTRUCTOR_DEFAULT_ACCESS.every((access) =>
-        currentAccess.includes(access)
-      );
-
-      if (!hasAllDefaults) {
-        setAddAdminData((prev) => ({
-          ...prev,
-          access: [
-            ...new Set([...INSTRUCTOR_DEFAULT_ACCESS, ...currentAccess]),
-          ],
-        }));
-      }
-    }
-  }, [AddAdminData?.type]);
-
-  useEffect(() => {
-    if (EditAdminData?.type === "instructor") {
-      const currentAccess = EditAdminData?.access || [];
-      const hasAllDefaults = INSTRUCTOR_DEFAULT_ACCESS.every((access) =>
-        currentAccess.includes(access)
-      );
-
-      if (!hasAllDefaults) {
-        setEditAdminData((prev) => ({
-          ...prev,
-          access: [
-            ...new Set([...INSTRUCTOR_DEFAULT_ACCESS, ...currentAccess]),
-          ],
-        }));
-      }
-    }
-  }, [EditAdminData?.type]);
 
   const columns = [
     {
@@ -126,7 +81,6 @@ const Permessions = () => {
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  // ✅ FIXED: Set data and open modal separately
                   setDeleteAdminData(row);
                   setDeleteAdminModal(true);
                 }}
@@ -145,12 +99,24 @@ const Permessions = () => {
                     ? row.access.split("**").filter(Boolean)
                     : [];
 
-                  // ✅ FIXED: Set data and open modal separately
-                  setEditAdminData({
+                  const adminData = {
                     ...row,
                     access: accessArray,
                     branch_id: row.branch_id || null,
+                  };
+
+                  setEditAdminData(adminData);
+
+                  // ✅ NEW: Set form values
+                  editForm.setFieldsValue({
+                    name: row.name,
+                    email: row.email,
+                    password: row.password,
+                    type: row.type,
+                    branch_id: row.branch_id,
+                    access: accessArray,
                   });
+
                   setEditAdminModal(true);
                 }}
               >
@@ -164,7 +130,6 @@ const Permessions = () => {
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  // ✅ FIXED: Set data and open modal separately
                   setAddAdminForGroupData(row);
                   setAddAdminForGroupModal(true);
                   handleGetGroups(row?.admin_id);
@@ -232,7 +197,7 @@ const Permessions = () => {
     axios
       .post(
         BASE_URL + "/admin/permissions/select_groups_not_assign_to_admin.php",
-        JSON.stringify(dataSend)
+        dataSend
       )
       .then((res) => {
         if (res?.data?.status == "success") {
@@ -263,70 +228,26 @@ const Permessions = () => {
     setTypeOptions((prevCategory) => [...prevCategory, newCategory]);
   }
 
-  function validateAdminData(data) {
-    if (!data.name || !data.name.trim()) {
-      toast.error("Name is required");
-      return false;
-    }
-    if (!data.email || !data.email.trim()) {
-      toast.error("Email is required");
-      return false;
-    }
-    if (!data.password || !data.password.trim()) {
-      toast.error("Password is required");
-      return false;
-    }
-    if (!data.type) {
-      toast.error("Type is required");
-      return false;
-    }
-    if (!data.branch_id) {
-      toast.error("Branch is required");
-      return false;
-    }
-    if (!data.access || data.access.length === 0) {
-      toast.error("At least one access permission is required");
-      return false;
-    }
-    return true;
-  }
-
-  function habdelAddNewAdmin() {
-    if (!validateAdminData(AddAdminData)) {
-      return;
-    }
-
+  // ✅ NEW: Handle Add Admin with Form validation
+  function handleAddNewAdmin(values) {
     setSubmitting(true);
 
     const dataSend = {
-      name: AddAdminData?.name,
-      email: AddAdminData?.email,
-      password: AddAdminData?.password,
-      permissions: AddAdminData?.type,
-      type: AddAdminData?.type,
-      branch_id: AddAdminData?.branch_id,
-      access: AddAdminData?.access?.join("**"),
+      name: values.name,
+      email: values.email,
+      password: values.password,
+      permissions: values.type,
+      type: values.type,
+      branch_id: values.branch_id,
+      access: values.access?.join("**"),
     };
 
     axios
-      .post(
-        BASE_URL + `/admin/permissions/add_admin.php`,
-        JSON.stringify(dataSend)
-      )
+      .post(BASE_URL + `/admin/permissions/add_admin.php`, dataSend)
       .then((res) => {
         if (res.data.status == "success") {
           toast.success(res.data.message);
-          // ✅ FIXED: Close modal and reset data separately
-          setAddAdminModal(false);
-          setAddAdminData({
-            name: null,
-            email: null,
-            password: null,
-            permissions: null,
-            type: null,
-            admin_branch: "",
-            access: [],
-          });
+          handleCloseAddModal();
           handleGetAllAdmins();
         } else {
           toast.error(res.data.message);
@@ -353,10 +274,7 @@ const Permessions = () => {
     };
 
     axios
-      .post(
-        BASE_URL + `/admin/permissions/add_group_for_Admin.php`,
-        JSON.stringify(dataSend)
-      )
+      .post(BASE_URL + `/admin/permissions/add_group_for_Admin.php`, dataSend)
       .then((res) => {
         if (res.data.status == "success") {
           toast.success(res.data.message);
@@ -378,14 +296,10 @@ const Permessions = () => {
     };
 
     axios
-      .post(
-        BASE_URL + `/admin/permissions/delete_admin.php`,
-        JSON.stringify(dataSend)
-      )
+      .post(BASE_URL + `/admin/permissions/delete_admin.php`, dataSend)
       .then((res) => {
         if (res.data.status == "success") {
           toast.success(res.data.message);
-          // ✅ FIXED: Close modal and reset data separately
           setDeleteAdminModal(false);
           setDeleteAdminData(null);
           handleGetAllAdmins();
@@ -399,34 +313,27 @@ const Permessions = () => {
       });
   }
 
-  function handelEditAdmin() {
-    if (!validateAdminData(EditAdminData)) {
-      return;
-    }
-
+  // ✅ NEW: Handle Edit Admin with Form validation
+  function handleEditAdmin(values) {
     setSubmitting(true);
+
     const dataSend = {
-      name: EditAdminData?.name,
-      email: EditAdminData?.email,
-      password: EditAdminData?.password,
-      permissions: EditAdminData?.type,
-      type: EditAdminData?.type,
+      name: values.name,
+      email: values.email,
+      password: values.password,
+      permissions: values.type,
+      type: values.type,
       admin_id: EditAdminData?.admin_id,
-      branch_id: EditAdminData?.branch_id,
-      access: EditAdminData?.access?.join("**"),
+      branch_id: values.branch_id,
+      access: values.access?.join("**"),
     };
 
     axios
-      .post(
-        BASE_URL + `/admin/permissions/edit_admin.php`,
-        JSON.stringify(dataSend)
-      )
+      .post(BASE_URL + `/admin/permissions/edit_admin.php`, dataSend)
       .then((res) => {
         if (res.data.status == "success") {
           toast.success(res.data.message);
-          // ✅ FIXED: Close modal and reset data separately
-          setEditAdminModal(false);
-          setEditAdminData(null);
+          handleCloseEditModal();
           handleGetAllAdmins();
         } else {
           toast.error(res.data.message);
@@ -441,37 +348,16 @@ const Permessions = () => {
       });
   }
 
-  const handleAddAdminAccessChange = (selectedAccess) => {
-    setAddAdminData({
-      ...AddAdminData,
-      access: selectedAccess,
-    });
-  };
-
-  const handleEditAdminAccessChange = (selectedAccess) => {
-    setEditAdminData({
-      ...EditAdminData,
-      access: selectedAccess,
-    });
-  };
-
-  // ✅ FIXED: Close modal handlers that also reset data
+  // ✅ NEW: Close modal and reset form
   const handleCloseAddModal = () => {
     setAddAdminModal(false);
-    setAddAdminData({
-      name: null,
-      email: null,
-      password: null,
-      permissions: null,
-      type: null,
-      admin_branch: "",
-      access: [],
-    });
+    addForm.resetFields();
   };
 
   const handleCloseEditModal = () => {
     setEditAdminModal(false);
     setEditAdminData(null);
+    editForm.resetFields();
   };
 
   const handleCloseGroupModal = () => {
@@ -509,6 +395,7 @@ const Permessions = () => {
                   }}
                   columns={columns}
                   dataSource={Admins}
+                  rowKey="admin_id"
                 />
               </div>
             </div>
@@ -516,269 +403,272 @@ const Permessions = () => {
         </div>
       </div>
 
-      {/* ✅ FIXED: Modal controlled by boolean state */}
+      {/* ✅ NEW: Add Admin Modal with Ant Design Form */}
       <Modal
         title="Add new Admin"
         open={AddAdminModal}
         onCancel={handleCloseAddModal}
-        footer={[
-          <Button
-            type="primary"
-            onClick={() => habdelAddNewAdmin()}
-            loading={submitting}
-            disabled={submitting}
-          >
-            Add
-          </Button>,
-          <Button key="cancel" onClick={handleCloseAddModal}>
-            Cancel
-          </Button>,
-        ]}
+        footer={null}
+        destroyOnClose
       >
-        <div className="form_field">
-          <label className="form_label">Name</label>
-          <input
-            type="text"
-            className="form_input"
-            value={AddAdminData.name || ""}
-            onChange={(e) => {
-              setAddAdminData({
-                ...AddAdminData,
-                name: e.target.value,
-              });
-            }}
-          />
-        </div>
+        <Form
+          form={addForm}
+          layout="vertical"
+          onFinish={handleAddNewAdmin}
+          autoComplete="off"
+        >
+          <Form.Item
+            label="Name"
+            name="name"
+            rules={[
+              { required: true, message: "Please enter name" },
+              { min: 2, message: "Name must be at least 2 characters" },
+            ]}
+          >
+            <Input placeholder="Enter name" />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">Email</label>
-          <input
-            type="text"
-            className="form_input"
-            value={AddAdminData.email || ""}
-            onChange={(e) => {
-              setAddAdminData({
-                ...AddAdminData,
-                email: e.target.value,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: "Please enter email" },
+              { type: "email", message: "Please enter a valid email" },
+            ]}
+          >
+            <Input placeholder="Enter email" />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">password</label>
-          <input
-            type="text"
-            className="form_input"
-            value={AddAdminData.password || ""}
-            onChange={(e) => {
-              setAddAdminData({
-                ...AddAdminData,
-                password: e.target.value,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Password"
+            name="password"
+            rules={[{ required: true, message: "Please enter password" }]}
+          >
+            <Input.Password placeholder="Enter password" />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">Type</label>
-          <CreatableSelect
-            placeholder="you can pick or write an option"
-            options={typeOptions}
-            value={typeOptions.find((opt) => opt.value === AddAdminData.type)}
-            onCreateOption={handelCreatOption}
-            onChange={(e) => {
-              setAddAdminData({
-                ...AddAdminData,
-                type: e?.value,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Type"
+            name="type"
+            rules={[{ required: true, message: "Please select type" }]}
+          >
+            <Select
+              placeholder="Select type"
+              options={typeOptions}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">Branch</label>
-          <Select
-            placeholder="Select Branch"
-            style={{ width: "100%" }}
-            value={AddAdminData.branch_id}
-            options={allBranches.map((branch) => ({
-              value: branch.branch_id,
-              label: branch.branch_name,
-            }))}
-            onChange={(e) => {
-              setAddAdminData({
-                ...AddAdminData,
-                branch_id: e,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Branch"
+            name="branch_id"
+            rules={[{ required: true, message: "Please select branch" }]}
+          >
+            <Select
+              placeholder="Select Branch"
+              options={allBranches.map((branch) => ({
+                value: branch.branch_id,
+                label: branch.branch_name,
+              }))}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">
-            Access
-            {AddAdminData?.type === "instructor" && (
-              <span
-                style={{
-                  color: "#52c41a",
-                  fontSize: "12px",
-                  marginLeft: "5px",
-                }}
-              >
-                (Absence, Groups, Students recommended for Instructors)
-              </span>
-            )}
-          </label>
-          <Select
-            mode="multiple"
-            placeholder="Select Access"
-            style={{ width: "100%" }}
-            value={AddAdminData?.access}
-            options={accessOptions.map((access) => ({
-              value: access.access,
-              label: access.label,
-            }))}
-            onChange={handleAddAdminAccessChange}
-          />
-        </div>
+          <Form.Item
+            label="Access"
+            name="access"
+            rules={[
+              { required: true, message: "Please select at least one access" },
+            ]}
+          >
+            <Select
+              mode="multiple"
+              placeholder="Select Access"
+              options={accessOptions.map((access) => ({
+                value: access.access,
+                label: access.label,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+            <Button
+              style={{ marginRight: 8 }}
+              onClick={handleCloseAddModal}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={submitting}>
+              Add
+            </Button>
+          </Form.Item>
+        </Form>
       </Modal>
 
-      {/* ✅ FIXED: Modal controlled by boolean state */}
+      {/* ✅ NEW: Edit Admin Modal with Ant Design Form */}
       <Modal
         title="Edit Admin"
         open={EditAdminModal}
         onCancel={handleCloseEditModal}
-        footer={[
-          <Button
-            loading={submitting}
-            type="primary"
-            onClick={() => handelEditAdmin()}
-            disabled={submitting}
-          >
-            Edit
-          </Button>,
-          <Button key="cancel" onClick={handleCloseEditModal}>
-            Cancel
-          </Button>,
-        ]}
+        footer={null}
+        destroyOnClose
       >
-        <div className="form_field">
-          <label className="form_label">Name</label>
-          <input
-            type="text"
-            className="form_input"
-            value={EditAdminData?.name || ""}
-            onChange={(e) => {
-              setEditAdminData({
-                ...EditAdminData,
-                name: e.target.value,
-              });
-            }}
-          />
-        </div>
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={handleEditAdmin}
+          autoComplete="off"
+        >
+          <Form.Item
+            label="Name"
+            name="name"
+            rules={[
+              { required: true, message: "Please enter name" },
+              { min: 2, message: "Name must be at least 2 characters" },
+            ]}
+          >
+            <Input placeholder="Enter name" />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">Email</label>
-          <input
-            type="text"
-            className="form_input"
-            value={EditAdminData?.email || ""}
-            onChange={(e) => {
-              setEditAdminData({
-                ...EditAdminData,
-                email: e.target.value,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: "Please enter email" },
+              { type: "email", message: "Please enter a valid email" },
+            ]}
+          >
+            <Input placeholder="Enter email" />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">password</label>
-          <input
-            type="text"
-            className="form_input"
-            value={EditAdminData?.password || ""}
-            onChange={(e) => {
-              setEditAdminData({
-                ...EditAdminData,
-                password: e.target.value,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Password"
+            name="password"
+            rules={[{ required: true, message: "Please enter password" }]}
+          >
+            <Input.Password placeholder="Enter password" />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">Type</label>
-          <Select
-            placeholder="you can pick or write an option"
-            style={{ width: "100%" }}
-            options={typeOptions}
-            value={EditAdminData?.type}
-            onChange={(e) => {
-              setEditAdminData({
-                ...EditAdminData,
-                type: e,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Type"
+            name="type"
+            rules={[{ required: true, message: "Please select type" }]}
+          >
+            <Select
+              placeholder="Select type"
+              options={typeOptions}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">Branch</label>
-          <Select
-            placeholder="Select Branch"
-            style={{ width: "100%" }}
-            options={allBranches.map((branch) => ({
-              value: branch.branch_id,
-              label: branch.branch_name,
-            }))}
-            value={EditAdminData?.branch_id}
-            onChange={(e) => {
-              setEditAdminData({
-                ...EditAdminData,
-                branch_id: e,
-              });
-            }}
-          />
-        </div>
+          <Form.Item
+            label="Branch"
+            name="branch_id"
+            rules={[{ required: true, message: "Please select branch" }]}
+          >
+            <Select
+              placeholder="Select Branch"
+              options={allBranches.map((branch) => ({
+                value: branch.branch_id,
+                label: branch.branch_name,
+              }))}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
 
-        <div className="form_field">
-          <label className="form_label">
-            Access
-            {EditAdminData?.type === "instructor" && (
-              <span
-                style={{
-                  color: "#52c41a",
-                  fontSize: "12px",
-                  marginLeft: "5px",
-                }}
-              >
-                (Absence, Groups, Students recommended for Instructors)
-              </span>
-            )}
-          </label>
-          <Select
-            mode="multiple"
-            placeholder="Select Access"
-            style={{ width: "100%" }}
-            value={EditAdminData?.access}
-            options={accessOptions.map((access) => ({
-              value: access.access,
-              label: access.label,
-            }))}
-            onChange={handleEditAdminAccessChange}
-          />
-        </div>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) =>
+              prevValues.type !== currentValues.type
+            }
+          >
+            {({ getFieldValue }) =>
+              getFieldValue("type") !== "super_admin" && (
+                <Form.Item
+                  label={
+                    <span>
+                      Access
+                      {getFieldValue("type") === "instructor" && (
+                        <span
+                          style={{
+                            color: "#52c41a",
+                            fontSize: "12px",
+                            marginLeft: "5px",
+                          }}
+                        >
+                          (Absence, Groups, Students recommended)
+                        </span>
+                      )}
+                    </span>
+                  }
+                  name="access"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please select at least one access",
+                    },
+                  ]}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Select Access"
+                    options={accessOptions.map((access) => ({
+                      value: access.access,
+                      label: access.label,
+                    }))}
+                  />
+                </Form.Item>
+              )
+            }
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+            <Button
+              style={{ marginRight: 8 }}
+              onClick={handleCloseEditModal}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={submitting}>
+              Edit
+            </Button>
+          </Form.Item>
+        </Form>
       </Modal>
 
-      {/* ✅ FIXED: Modal controlled by boolean state */}
+      {/* Add Admin For Group Modal */}
       <Modal
         title="Add Admin For Group"
         open={AddAdminForGroupModal}
         onCancel={handleCloseGroupModal}
         footer={[
-          <Button type="primary" onClick={() => habdelAddAdminForGroup()}>
+          <Button
+            key="add"
+            type="primary"
+            onClick={() => habdelAddAdminForGroup()}
+          >
             Add
           </Button>,
           <Button key="cancel" onClick={handleCloseGroupModal}>
@@ -790,7 +680,6 @@ const Permessions = () => {
           <label className="form_label">Select Group</label>
           <Select
             showSearch
-            type="text"
             style={{ width: "100%" }}
             value={NewGroupId}
             filterOption={(input, option) =>
@@ -804,24 +693,26 @@ const Permessions = () => {
         </div>
       </Modal>
 
-      {/* ✅ FIXED: Modal controlled by boolean state */}
+      {/* Delete Admin Modal */}
       <Modal
-        title={`"Delete Admin" ${DeleteAdminData?.name}`}
+        title={`Delete Admin: ${DeleteAdminData?.name || ""}`}
         open={DeleteAdminModal}
-        footer={
-          <>
-            <Button
-              style={{ margin: "0px 10px " }}
-              onClick={() => handelDeleteAdmin()}
-            >
-              Delete
-            </Button>
-            <Button onClick={handleCloseDeleteModal}>Cancel</Button>
-          </>
-        }
         onCancel={handleCloseDeleteModal}
+        footer={[
+          <Button
+            key="delete"
+            type="primary"
+            danger
+            onClick={() => handelDeleteAdmin()}
+          >
+            Delete
+          </Button>,
+          <Button key="cancel" onClick={handleCloseDeleteModal}>
+            Cancel
+          </Button>,
+        ]}
       >
-        <h3>Are you sure that you want to Delete this admin</h3>
+        <h3>Are you sure that you want to Delete this admin?</h3>
       </Modal>
     </>
   );

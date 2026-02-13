@@ -1,818 +1,986 @@
-import { Button, Modal, Table, Dropdown } from "antd";
+import {
+  Button,
+  Modal,
+  Table,
+  Dropdown,
+  Form,
+  Input,
+  Upload,
+  Radio,
+} from "antd";
 import Breadcrumbs from "../../../../component/common/breadcrumb/breadcrumb";
 import "./style.css";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Spinner } from "react-bootstrap";
+import { FaBook, FaEllipsisVertical } from "react-icons/fa6";
 import {
-  FaBook,
-  FaEllipsisVertical,
-  FaEye,
-  FaEyeSlash,
-  FaFilePen,
-  FaPlus,
-  FaTrash,
-} from "react-icons/fa6";
+  UploadOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  CheckCircleFilled,
+} from "@ant-design/icons";
 import axios from "axios";
 import { BASE_URL } from "../../../../Api/baseUrl";
 import { toast } from "react-toastify";
-import { relativeValue } from "react-range";
 import { imageUploader } from "../../camp-utils";
-import { split } from "lodash";
 import { voiceUploader } from "../../camp-utils/UploadVoice";
 import { PdfUploader } from "../../camp-utils/UploadPdf";
+
 export default function Questions() {
   const { section_id } = useParams();
-  const [addModal, setAddModal] = useState(false);
-  const [addLoading, setAddLoading] = useState(false);
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [showHideModal, setShowHideModal] = useState(false);
-  const [editModal, setEditModal] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [rowData, setRowData] = useState({});
+
+  // Form Instances
+  const [addForm] = Form.useForm();
+  const [editForm] = Form.useForm();
+
+  // Data States
   const [questions, setQuestions] = useState([]);
-  const [imgs, setImgs] = useState({
-    file: null,
-    url: "",
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
+
+  // Modal States (boolean only)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAttachmentsModalOpen, setIsAttachmentsModalOpen] = useState(false);
+
+  // Loading States
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // File States for Add
+  const [addFiles, setAddFiles] = useState({
+    image: null,
+    imagePreview: null,
+    voice: null,
+    pdf: null,
   });
 
-  const [AttachmentsModal, setAttachmentsModal] = useState(null);
-
-  const [voice, setVoice] = useState(null);
-  const [pdf, setPdf] = useState(null);
-
-  const [questionData, setQuestionsData] = useState({
-    section_id: section_id,
-    question_text: "",
-    question_image: "",
-    question_valid_answer: "",
-    question_answers: "",
-    question_audio: "",
-    question_pdf: "",
+  // File States for Edit
+  const [editFiles, setEditFiles] = useState({
+    image: null,
+    imagePreview: null,
   });
-  const [additionalAnswers, setAdditionalAnswers] = useState(
-    Array.from({ length: 2 }, (_, id) => ({ id, ans: "" }))
-  );
+
+  // ✅ Answers State for Add (with correct answer index)
+  const [answers, setAnswers] = useState(["", "", ""]);
+  const [correctAnswerIndex, setCorrectAnswerIndex] = useState(null);
+
+  // ✅ Answers State for Edit (with correct answer index)
+  const [editAnswers, setEditAnswers] = useState([]);
+  const [editCorrectAnswerIndex, setEditCorrectAnswerIndex] = useState(null);
+
+  // ==================== Modal Control Functions ====================
+
+  const openAddModal = () => {
+    addForm.resetFields();
+    setAnswers(["", "", ""]);
+    setCorrectAnswerIndex(null);
+    setAddFiles({ image: null, imagePreview: null, voice: null, pdf: null });
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    addForm.resetFields();
+    setAnswers(["", "", ""]);
+    setCorrectAnswerIndex(null);
+    setAddFiles({ image: null, imagePreview: null, voice: null, pdf: null });
+  };
+
+  const openEditModal = (row) => {
+    const answersArray = row?.question_answers?.split("//CAMP//") || [];
+    const correctIndex = answersArray.findIndex(
+      (ans) => ans === row?.question_valid_answer
+    );
+
+    setSelectedQuestion(row);
+    setEditAnswers(answersArray);
+    setEditCorrectAnswerIndex(correctIndex >= 0 ? correctIndex : null);
+    setEditFiles({ image: null, imagePreview: null });
+
+    editForm.setFieldsValue({
+      question_text: row.question_text,
+    });
+
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedQuestion(null);
+    setEditAnswers([]);
+    setEditCorrectAnswerIndex(null);
+    setEditFiles({ image: null, imagePreview: null });
+    editForm.resetFields();
+  };
+
+  const openDeleteModal = (row) => {
+    setSelectedQuestion(row);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setSelectedQuestion(null);
+  };
+
+  const openAttachmentsModal = (row) => {
+    setSelectedQuestion(row);
+    setIsAttachmentsModalOpen(true);
+  };
+
+  const closeAttachmentsModal = () => {
+    setIsAttachmentsModalOpen(false);
+    setSelectedQuestion(null);
+  };
+
+  // ==================== Table Columns ====================
 
   const columns = [
     {
-      id: "question_id",
       dataIndex: "question_id",
-      title: "Id",
+      title: "#",
+      width: 60,
     },
     {
-      id: "question_image",
       dataIndex: "question_image",
       title: "Image",
+      width: 120,
       render: (text, row) =>
-        row?.question_image && (
+        row?.question_image ? (
           <img
-            style={{ width: "100px", height: "100px", borderRadius: "10px" }}
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "8px",
+              objectFit: "cover",
+            }}
             src={row?.question_image}
+            alt="question"
           />
+        ) : (
+          <span style={{ color: "#999" }}>No Image</span>
         ),
     },
     {
-      id: "question_answers",
+      dataIndex: "question_text",
+      title: "Question",
+      ellipsis: true,
+    },
+    {
       dataIndex: "question_answers",
-      title: "question answers",
+      title: "Answers",
       render: (text, row) => {
-        const answers = row?.question_answers?.split("//CAMP//");
+        const answersArr = row?.question_answers?.split("//CAMP//") || [];
         return (
-          <ul style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-            {answers?.map((item, index) => (
-              <li
-                style={
-                  row?.question_valid_answer == item
-                    ? { color: "green" }
-                    : { color: "red" }
-                }
-                key={index}
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            {answersArr.map((item, index) => {
+              const isCorrect = row?.question_valid_answer === item;
+              return (
+                <span
+                  key={index}
+                  style={{
+                    color: isCorrect ? "#52c41a" : "#333",
+                    fontWeight: isCorrect ? "600" : "400",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  {isCorrect && <CheckCircleFilled style={{ fontSize: 14 }} />}
+                  {item}
+                </span>
+              );
+            })}
+          </div>
         );
       },
     },
     {
-      id: "question_valid_answer",
-      dataIndex: "question_valid_answer",
-      title: "question valid answer",
-    },
-    {
-      id: "real_answers",
-      dataIndex: "real_answers",
-      title: "real answers",
-      render: (text, row) => (
-        <ul style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-          {row?.real_answers?.map((ans, index) => (
-            <li key={index}>{ans}</li>
-          ))}
-        </ul>
-      ),
-    },
-    {
       title: "Actions",
+      width: 80,
       render: (text, row) => {
         const items = [
           {
-            key: 1,
+            key: "edit",
             label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRowData(row);
-                  setEditModal(true);
-                }}
-              >
-                Edit Question
-              </button>
+              <span onClick={() => openEditModal(row)}>Edit Question</span>
             ),
           },
           {
-            key: 2,
+            key: "delete",
             label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setRowData(row);
-                  setDeleteModal(true);
-                }}
+              <span
+                onClick={() => openDeleteModal(row)}
+                style={{ color: "#ff4d4f" }}
               >
                 Delete Question
-              </button>
+              </span>
             ),
           },
           {
-            key: 3,
+            key: "attachments",
             label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setAttachmentsModal(row);
-                }}
-              >
-                {" "}
-                Question's Attachments
-              </button>
+              <span onClick={() => openAttachmentsModal(row)}>
+                View Attachments
+              </span>
             ),
           },
         ];
+
         return (
           <Dropdown
-            menu={{
-              items,
-            }}
-            placement="bottom"
+            menu={{ items }}
+            placement="bottomRight"
+            trigger={["click"]}
           >
-            <Button
-              style={{ display: "flex", flexDirection: "column", gap: "3px" }}
-            >
-              <FaEllipsisVertical />
-            </Button>
+            <Button icon={<FaEllipsisVertical />} />
           </Dropdown>
         );
       },
     },
   ];
 
-  function handleGetAllQuestion() {
-    const data_send = {
-      section_id: section_id,
-    };
+  // ==================== API Calls ====================
+
+  const handleGetAllQuestions = () => {
+    setFetchLoading(true);
     axios
-      .post(
-        BASE_URL + "/admin/questions_content/get_section_question.php",
-        data_send
-      )
+      .post(BASE_URL + "/admin/questions_content/get_section_question.php", {
+        section_id,
+      })
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setQuestions(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
-  }
+      .catch((e) => console.log(e))
+      .finally(() => setFetchLoading(false));
+  };
 
-  async function handleAddQuestion(e) {
-    e.preventDefault();
-    if (!questionData?.question_text) {
-      toast.warn("please enter title first!");
+  useEffect(() => {
+    handleGetAllQuestions();
+  }, []);
+
+  // ==================== Add Question ====================
+
+  const handleAddQuestion = async (values) => {
+    // Validate answers
+    const filledAnswers = answers.filter((ans) => ans.trim());
+
+    if (filledAnswers.length < 2) {
+      toast.error("Please enter at least 2 answers");
       return;
     }
 
-    if (!questionData?.question_valid_answer) {
-      toast.warn("please Enter Valid answer");
+    // ✅ Validate correct answer selection
+    if (correctAnswerIndex === null) {
+      toast.error("Please select the correct answer");
       return;
     }
 
-    if (additionalAnswers?.some((ans) => !ans?.ans?.trim())) {
-      alert("All answers must be filled.");
+    if (!answers[correctAnswerIndex]?.trim()) {
+      toast.error("The selected correct answer cannot be empty");
       return;
     }
 
     setAddLoading(true);
 
-    let pdfUrl;
+    try {
+      let imageUrl = null;
+      let voiceUrl = null;
+      let pdfUrl = null;
 
-    if (pdf) {
-      const formData = new FormData();
-      formData.append("file_attachment", pdf);
-      const respdf = await PdfUploader(formData);
-      console.log(respdf);
-
-      if (respdf.data.status == "success") {
-        console.log("wdjajidij");
-
-        pdfUrl = respdf.data.message;
+      // Upload Image
+      if (addFiles.image) {
+        const formData = new FormData();
+        formData.append("image", addFiles.image);
+        const resImg = await imageUploader(formData);
+        if (resImg?.data?.status === "success") {
+          imageUrl = resImg.data.message;
+        }
       }
-    }
 
-    console.log(pdfUrl);
-
-    let voiceUrl;
-
-    if (voice) {
-      const formData = new FormData();
-      formData.append("voice", voice);
-      const resvoice = await voiceUploader(formData);
-      console.log(resvoice);
-
-      if (resvoice.data.status == "success") {
-        console.log("wdjajidij");
-
-        voiceUrl = resvoice.data.message;
+      // Upload Voice
+      if (addFiles.voice) {
+        const formData = new FormData();
+        formData.append("voice", addFiles.voice);
+        const resVoice = await voiceUploader(formData);
+        if (resVoice?.data?.status === "success") {
+          voiceUrl = resVoice.data.message;
+        }
       }
-    }
 
-    console.log(voiceUrl);
-
-    if (imgs?.file) {
-      const formData = new FormData();
-      formData.append("image", imgs?.file);
-      const resImg = await imageUploader(formData);
-      if (resImg?.data?.status == "success") {
-        const data_send = {
-          ...questionData,
-          question_answers: additionalAnswers
-            .map((ans) => ans?.ans)
-            ?.join("//CAMP//"),
-          question_image: resImg?.data?.message,
-          question_pdf: pdfUrl,
-          question_audio: voiceUrl,
-        };
-
-        console.log(data_send);
-
-        axios
-          .post(
-            BASE_URL + "/admin/questions_content/add_section_questions.php",
-            data_send
-          )
-          .then((res) => {
-            if (res?.data?.status == "success") {
-              toast.success(res?.data?.message);
-              handleGetAllQuestion();
-              setAddLoading(false);
-              setAddModal(false);
-              setImgs({ file: null, url: "" });
-              setQuestionsData({
-                section_id: section_id,
-
-                question_text: "",
-                question_valid_answer: "",
-                question_answers: "",
-                question_image: "",
-              });
-              setAdditionalAnswers(
-                Array.from({ length: 2 }, (_, id) => ({ id, ans: "" }))
-              );
-            } else {
-              toast.error(res?.data?.message || "There's a problem");
-            }
-          })
-          .catch((e) => console.log(e))
-          .finally(() => {
-            setAddLoading(false);
-            setAddModal(false);
-          });
-      } else {
-        toast.error(
-          resImg?.data?.message || "There is an issue with uploading the image"
-        );
+      // Upload PDF
+      if (addFiles.pdf) {
+        const formData = new FormData();
+        formData.append("file_attachment", addFiles.pdf);
+        const resPdf = await PdfUploader(formData);
+        if (resPdf?.data?.status === "success") {
+          pdfUrl = resPdf.data.message;
+        }
       }
-    } else {
-      const data_send = {
-        ...questionData,
-        question_answers: additionalAnswers
-          .map((ans) => ans?.ans)
-          ?.join("//CAMP//"),
-        question_image: null,
+
+      const dataSend = {
+        section_id,
+        question_text: values.question_text,
+        question_valid_answer: answers[correctAnswerIndex], // ✅ Get from selected index
+        question_answers: filledAnswers.join("//CAMP//"),
+        question_image: imageUrl,
+        question_audio: voiceUrl,
+        question_pdf: pdfUrl,
       };
 
-      axios
-        .post(
-          BASE_URL + "/admin/questions_content/add_section_questions.php",
-          data_send
-        )
-        .then((res) => {
-          if (res?.data?.status == "success") {
-            toast.success(res?.data?.message);
-            handleGetAllQuestion();
-            setAddLoading(false);
-            setAddModal(false);
-            setImgs({ file: null, url: "" });
-            setQuestionsData({
-              section_id: section_id,
+      const res = await axios.post(
+        BASE_URL + "/admin/questions_content/add_section_questions.php",
+        dataSend
+      );
 
-              question_text: "",
-              question_valid_answer: "",
-              question_answers: "",
-              question_image: "",
-            });
-            setAdditionalAnswers(
-              Array.from({ length: 2 }, (_, id) => ({ id, ans: "" }))
-            );
-          } else {
-            toast.error(res?.data?.message || "There's a problem");
-          }
-        })
-        .catch((e) => console.log(e))
-        .finally(() => {
-          setAddLoading(false);
-          setAddModal(false);
-        });
+      if (res?.data?.status === "success") {
+        toast.success(res?.data?.message);
+        handleGetAllQuestions();
+        closeAddModal();
+      } else {
+        toast.error(res?.data?.message || "Failed to add question");
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("An error occurred");
+    } finally {
+      setAddLoading(false);
     }
-  }
+  };
 
-  async function handleEditQuestion(e) {
-    e.preventDefault();
-    console.log(rowData);
+  // ==================== Edit Question ====================
+
+  const handleEditQuestion = async (values) => {
+    const filledAnswers = editAnswers.filter((ans) => ans.trim());
+
+    if (filledAnswers.length < 2) {
+      toast.error("Please enter at least 2 answers");
+      return;
+    }
+
+    // ✅ Validate correct answer selection
+    if (editCorrectAnswerIndex === null) {
+      toast.error("Please select the correct answer");
+      return;
+    }
+
+    if (!editAnswers[editCorrectAnswerIndex]?.trim()) {
+      toast.error("The selected correct answer cannot be empty");
+      return;
+    }
 
     setEditLoading(true);
-    if (imgs?.file) {
-      const formData = new FormData();
-      formData.append("image", imgs?.file);
-      const resImg = await imageUploader(formData);
 
-      if (resImg?.data?.status == "success") {
-        const data_send = {
-          ...rowData,
-          question_image: resImg?.data?.message,
-        };
+    try {
+      let imageUrl = selectedQuestion?.question_image;
 
-        axios
-          .post(
-            BASE_URL + "/admin/questions_content/edit_section_question.php",
-            data_send
-          )
-          .then((res) => {
-            if (res?.data?.status == "success") {
-              toast.success(res?.data?.message);
-              handleGetAllQuestion();
-              setRowData({});
-              setEditLoading(false);
-              setEditModal(false);
-              setImgs({ file: null, url: "" });
-            } else {
-              toast.error(res?.data?.message || "There's a problem");
-            }
-          })
-          .catch((e) => console.log(e))
-          .finally(() => {
-            setEditLoading(false);
-            setEditModal(false);
-          });
-      } else {
-        toast.error(
-          resImg?.data?.message || "There is an issue with uploading the image"
-        );
+      // Upload new image if selected
+      if (editFiles.image) {
+        const formData = new FormData();
+        formData.append("image", editFiles.image);
+        const resImg = await imageUploader(formData);
+        if (resImg?.data?.status === "success") {
+          imageUrl = resImg.data.message;
+        }
       }
-    } else {
-      const data_send = {
-        ...rowData,
+
+      const dataSend = {
+        question_id: selectedQuestion?.question_id,
+        question_text: values.question_text,
+        question_valid_answer: editAnswers[editCorrectAnswerIndex], // ✅ Get from selected index
+        question_answers: filledAnswers.join("//CAMP//"),
+        question_image: imageUrl,
       };
 
-      axios
-        .post(
-          BASE_URL + "/admin/questions_content/edit_section_question.php",
-          data_send
-        )
-        .then((res) => {
-          if (res?.data?.status == "success") {
-            toast.success(res?.data?.message);
-            handleGetAllQuestion();
-            setRowData({});
-            setEditLoading(false);
-            setEditModal(false);
-            setImgs({ file: null, url: "" });
-          } else {
-            toast.error(res?.data?.message || "There's a problem");
-          }
-        })
-        .catch((e) => console.log(e))
-        .finally(() => {
-          setEditLoading(false);
-          setEditModal(false);
-        });
+      const res = await axios.post(
+        BASE_URL + "/admin/questions_content/edit_section_question.php",
+        dataSend
+      );
+
+      if (res?.data?.status === "success") {
+        toast.success(res?.data?.message);
+        handleGetAllQuestions();
+        closeEditModal();
+      } else {
+        toast.error(res?.data?.message || "Failed to edit question");
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("An error occurred");
+    } finally {
+      setEditLoading(false);
     }
-  }
+  };
 
-  function handleAddInput() {
-    setAdditionalAnswers([
-      ...additionalAnswers,
-      { id: additionalAnswers?.length + 1, ans: "" },
-    ]);
-  }
+  // ==================== Delete Question ====================
 
-  function handleRemoveInput(id) {
-    setAdditionalAnswers(
-      additionalAnswers.filter((ans, index) => index !== id)
-    );
-  }
-
-  function handleInputChange(id, e) {
-    setAdditionalAnswers((prev) =>
-      prev.map((ans, index) =>
-        index === id ? { ...ans, ans: e.target.value } : ans
-      )
-    );
-  }
-
-  function handleDeleteQuestion() {
-    const data_send = {
-      question_id: rowData?.question_id,
-    };
+  const handleDeleteQuestion = () => {
+    setDeleteLoading(true);
 
     axios
-      .post(
-        BASE_URL + "/admin/questions_content/delete_section_question.php",
-        data_send
-      )
+      .post(BASE_URL + "/admin/questions_content/delete_section_question.php", {
+        question_id: selectedQuestion?.question_id,
+      })
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          handleGetAllQuestion();
-          setRowData({});
-          setDeleteModal(false);
+          handleGetAllQuestions();
+          closeDeleteModal();
         } else {
-          toast.error(
-            res?.data?.message || "There's an issue while deleting a question"
-          );
+          toast.error(res?.data?.message || "Failed to delete question");
         }
       })
-      .catch((e) => console.log(e))
-      .finally(() => setDeleteModal(false));
-  }
+      .catch((e) => {
+        console.log(e);
+        toast.error("An error occurred");
+      })
+      .finally(() => setDeleteLoading(false));
+  };
 
-  useEffect(() => {
-    handleGetAllQuestion();
-  }, []);
+  // ==================== Answer Handlers (Add) ====================
 
-  function handleCheckbox(e, index) {
-    console.log(e, index);
-  }
+  const handleAddAnswer = () => {
+    setAnswers([...answers, ""]);
+  };
+
+  const handleRemoveAnswer = (index) => {
+    if (answers.length > 2) {
+      setAnswers(answers.filter((_, i) => i !== index));
+
+      // ✅ Update correct answer index if needed
+      if (correctAnswerIndex === index) {
+        setCorrectAnswerIndex(null);
+      } else if (correctAnswerIndex > index) {
+        setCorrectAnswerIndex(correctAnswerIndex - 1);
+      }
+    }
+  };
+
+  const handleAnswerChange = (index, value) => {
+    const newAnswers = [...answers];
+    newAnswers[index] = value;
+    setAnswers(newAnswers);
+  };
+
+  // ==================== Answer Handlers (Edit) ====================
+
+  const handleAddEditAnswer = () => {
+    setEditAnswers([...editAnswers, ""]);
+  };
+
+  const handleRemoveEditAnswer = (index) => {
+    if (editAnswers.length > 2) {
+      setEditAnswers(editAnswers.filter((_, i) => i !== index));
+
+      // ✅ Update correct answer index if needed
+      if (editCorrectAnswerIndex === index) {
+        setEditCorrectAnswerIndex(null);
+      } else if (editCorrectAnswerIndex > index) {
+        setEditCorrectAnswerIndex(editCorrectAnswerIndex - 1);
+      }
+    }
+  };
+
+  const handleEditAnswerChange = (index, value) => {
+    const newAnswers = [...editAnswers];
+    newAnswers[index] = value;
+    setEditAnswers(newAnswers);
+  };
+
+  // ==================== Render ====================
+
   return (
     <div>
-      <Breadcrumbs parent="sections" title="Exam questions" />
+      <Breadcrumbs parent="Sections" title="Exam Questions" />
+
       <div className="container-fluid">
         <div className="row">
           <div className="col-sm-12">
             <div className="card">
-              <div className="card-header">
+              <div className="card-header d-flex justify-content-between align-items-center">
                 <h5>Exam Questions</h5>
+                <button
+                  className="btn btn-primary"
+                  // type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={openAddModal}
+                >
+                  Add Question
+                </button>
               </div>
 
               <div className="card-body">
-                <button
-                  className="btn btn-primary my-4"
-                  onClick={() => setAddModal(true)}
-                >
-                  Add Questions
-                </button>
-                <Table columns={columns} dataSource={questions} />
+                <Table
+                  columns={columns}
+                  dataSource={questions}
+                  loading={fetchLoading}
+                  rowKey="question_id"
+                  scroll={{ x: "max-content" }}
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ==================== Add Modal ==================== */}
+      <Modal
+        title="Add New Question"
+        open={isAddModalOpen}
+        onCancel={closeAddModal}
+        footer={null}
+        width={600}
+        destroyOnClose
+      >
+        <Form form={addForm} layout="vertical" onFinish={handleAddQuestion}>
+          <Form.Item
+            label="Question Text"
+            name="question_text"
+            rules={[{ required: true, message: "Please enter question text" }]}
+          >
+            <Input.TextArea rows={3} placeholder="Enter your question" />
+          </Form.Item>
+
+          {/* ✅ Answers Section with Radio */}
+          <div style={{ marginBottom: 24 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <label style={{ fontWeight: 500 }}>
+                Answers <span style={{ color: "#ff4d4f" }}>*</span>
+                <span style={{ fontWeight: 400, color: "#666", marginLeft: 8 }}>
+                  (Select the correct one)
+                </span>
+              </label>
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={handleAddAnswer}
+              >
+                Add
+              </Button>
+            </div>
+
+            <Radio.Group
+              value={correctAnswerIndex}
+              onChange={(e) => setCorrectAnswerIndex(e.target.value)}
+              style={{ width: "100%" }}
+            >
+              {answers.map((ans, index) => (
+                <div
+                  key={index}
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: 8,
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    border:
+                      correctAnswerIndex === index
+                        ? "2px solid #52c41a"
+                        : "1px solid #d9d9d9",
+                    backgroundColor:
+                      correctAnswerIndex === index ? "#f6ffed" : "#fff",
+                  }}
+                >
+                  <Radio value={index} />
+                  <Input
+                    placeholder={`Answer ${index + 1}`}
+                    value={ans}
+                    onChange={(e) => handleAnswerChange(index, e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  {answers.length > 2 && (
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => handleRemoveAnswer(index)}
+                    />
+                  )}
+                </div>
+              ))}
+            </Radio.Group>
+
+            {correctAnswerIndex !== null && answers[correctAnswerIndex] && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "8px 12px",
+                  backgroundColor: "#f6ffed",
+                  borderRadius: 6,
+                  color: "#52c41a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <CheckCircleFilled />
+                Correct Answer: <strong>{answers[correctAnswerIndex]}</strong>
+              </div>
+            )}
+          </div>
+
+          {/* Image Upload */}
+          <Form.Item label="Question Image (Optional)">
+            <Upload
+              beforeUpload={(file) => {
+                setAddFiles({
+                  ...addFiles,
+                  image: file,
+                  imagePreview: URL.createObjectURL(file),
+                });
+                return false;
+              }}
+              onRemove={() =>
+                setAddFiles({ ...addFiles, image: null, imagePreview: null })
+              }
+              maxCount={1}
+              accept="image/*"
+              listType="picture"
+              fileList={
+                addFiles.image
+                  ? [{ uid: "-1", name: addFiles.image.name, status: "done" }]
+                  : []
+              }
+            >
+              <Button icon={<UploadOutlined />}>Select Image</Button>
+            </Upload>
+          </Form.Item>
+
+          {/* Voice Upload */}
+          <Form.Item label="Question Voice (Optional)">
+            <Upload
+              beforeUpload={(file) => {
+                setAddFiles({ ...addFiles, voice: file });
+                return false;
+              }}
+              onRemove={() => setAddFiles({ ...addFiles, voice: null })}
+              maxCount={1}
+              accept="audio/*"
+              fileList={
+                addFiles.voice
+                  ? [{ uid: "-1", name: addFiles.voice.name, status: "done" }]
+                  : []
+              }
+            >
+              <Button icon={<UploadOutlined />}>Select Audio</Button>
+            </Upload>
+          </Form.Item>
+
+          {/* PDF Upload */}
+          <Form.Item label="Question PDF (Optional)">
+            <Upload
+              beforeUpload={(file) => {
+                setAddFiles({ ...addFiles, pdf: file });
+                return false;
+              }}
+              onRemove={() => setAddFiles({ ...addFiles, pdf: null })}
+              maxCount={1}
+              accept=".pdf"
+              fileList={
+                addFiles.pdf
+                  ? [{ uid: "-1", name: addFiles.pdf.name, status: "done" }]
+                  : []
+              }
+            >
+              <Button icon={<UploadOutlined />}>Select PDF</Button>
+            </Upload>
+          </Form.Item>
+
+          <Form.Item
+            style={{ marginBottom: 0, textAlign: "right", marginTop: 24 }}
+          >
+            <Button
+              onClick={closeAddModal}
+              style={{ marginRight: 8 }}
+              disabled={addLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={addLoading}>
+              Add Question
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ==================== Edit Modal ==================== */}
+      <Modal
+        title="Edit Question"
+        open={isEditModalOpen}
+        onCancel={closeEditModal}
+        footer={null}
+        width={600}
+        destroyOnClose
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEditQuestion}>
+          <Form.Item
+            label="Question Text"
+            name="question_text"
+            rules={[{ required: true, message: "Please enter question text" }]}
+          >
+            <Input.TextArea rows={3} placeholder="Enter your question" />
+          </Form.Item>
+
+          {/* ✅ Answers Section with Radio */}
+          <div style={{ marginBottom: 24 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <label style={{ fontWeight: 500 }}>
+                Answers <span style={{ color: "#ff4d4f" }}>*</span>
+                <span style={{ fontWeight: 400, color: "#666", marginLeft: 8 }}>
+                  (Select the correct one)
+                </span>
+              </label>
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={handleAddEditAnswer}
+              >
+                Add
+              </Button>
+            </div>
+
+            <Radio.Group
+              value={editCorrectAnswerIndex}
+              onChange={(e) => setEditCorrectAnswerIndex(e.target.value)}
+              style={{ width: "100%" }}
+            >
+              {editAnswers.map((ans, index) => (
+                <div
+                  key={index}
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: 8,
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    border:
+                      editCorrectAnswerIndex === index
+                        ? "2px solid #52c41a"
+                        : "1px solid #d9d9d9",
+                    backgroundColor:
+                      editCorrectAnswerIndex === index ? "#f6ffed" : "#fff",
+                  }}
+                >
+                  <Radio value={index} />
+                  <Input
+                    placeholder={`Answer ${index + 1}`}
+                    value={ans}
+                    onChange={(e) =>
+                      handleEditAnswerChange(index, e.target.value)
+                    }
+                    style={{ flex: 1 }}
+                  />
+                  {editAnswers.length > 2 && (
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => handleRemoveEditAnswer(index)}
+                    />
+                  )}
+                </div>
+              ))}
+            </Radio.Group>
+
+            {editCorrectAnswerIndex !== null &&
+              editAnswers[editCorrectAnswerIndex] && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 12px",
+                    backgroundColor: "#f6ffed",
+                    borderRadius: 6,
+                    color: "#52c41a",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <CheckCircleFilled />
+                  Correct Answer:{" "}
+                  <strong>{editAnswers[editCorrectAnswerIndex]}</strong>
+                </div>
+              )}
+          </div>
+
+          {/* Image Upload */}
+          <Form.Item label="Question Image">
+            <Upload
+              beforeUpload={(file) => {
+                setEditFiles({
+                  image: file,
+                  imagePreview: URL.createObjectURL(file),
+                });
+                return false;
+              }}
+              onRemove={() => setEditFiles({ image: null, imagePreview: null })}
+              maxCount={1}
+              accept="image/*"
+              listType="picture"
+              fileList={
+                editFiles.image
+                  ? [{ uid: "-1", name: editFiles.image.name, status: "done" }]
+                  : []
+              }
+            >
+              <Button icon={<UploadOutlined />}>Select New Image</Button>
+            </Upload>
+
+            {/* Current Image Preview */}
+            {selectedQuestion?.question_image && !editFiles.image && (
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <img
+                  src={selectedQuestion.question_image}
+                  alt="current"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 8,
+                    objectFit: "cover",
+                  }}
+                />
+                <span style={{ color: "#666" }}>Current image</span>
+              </div>
+            )}
+          </Form.Item>
+
+          <Form.Item
+            style={{ marginBottom: 0, textAlign: "right", marginTop: 24 }}
+          >
+            <Button
+              onClick={closeEditModal}
+              style={{ marginRight: 8 }}
+              disabled={editLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={editLoading}>
+              Save Changes
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ==================== Delete Modal ==================== */}
       <Modal
         title="Delete Question"
-        onCancel={() => setDeleteModal(false)}
-        open={deleteModal}
+        open={isDeleteModalOpen}
+        onCancel={closeDeleteModal}
         footer={[
-          <Button type="primary" key="submit" onClick={handleDeleteQuestion}>
-            Yes
+          <Button
+            key="cancel"
+            onClick={closeDeleteModal}
+            disabled={deleteLoading}
+          >
+            Cancel
           </Button>,
-          <Button type="" key="cancel" onClick={() => setDeleteModal(false)}>
-            No
+          <Button
+            key="delete"
+            type="primary"
+            danger
+            onClick={handleDeleteQuestion}
+            loading={deleteLoading}
+          >
+            Delete
           </Button>,
         ]}
       >
-        <p>
-          Are you sure you want to delete the Following question:
-          <br />
-          <strong>{rowData?.question_text}</strong>
+        <p>Are you sure you want to delete this question?</p>
+        <p style={{ background: "#f5f5f5", padding: 12, borderRadius: 6 }}>
+          <strong>{selectedQuestion?.question_text}</strong>
         </p>
       </Modal>
 
-      <Modal
-        title="Add Question"
-        open={addModal}
-        onCancel={() => setAddModal(false)}
-        footer={[
-          <Button type="primary" key="submit" onClick={handleAddQuestion}>
-            {addLoading ? <Spinner animation="border" size="sm" /> : "Add"}
-          </Button>,
-          <Button key="cancel" onClick={() => setAddModal(false)}>
-            Cancel
-          </Button>,
-        ]}
-      >
-        <form onSubmit={handleAddQuestion}>
-          <div className="form_field">
-            <label className="form_label">Question Text</label>
-            <input
-              value={questionData?.question_text}
-              type="text"
-              className="form_input"
-              onChange={(e) =>
-                setQuestionsData({
-                  ...questionData,
-                  question_text: e.target.value,
-                })
-              }
-            />
-          </div>
-
-          <div className="form_field">
-            <div className="d-flex justify-content-between align-items-center">
-              <label className="form_label">Question Answers</label>
-              <FaPlus
-                onClick={handleAddInput}
-                style={{ width: "20px", height: "20px" }}
-              />
-            </div>
-
-            {additionalAnswers.map((ans, index) => (
-              <div
-                className="d-flex justify-content-between align-items-center gap-3"
-                key={ans?.id}
-              >
-                {/* <input type="checkbox"  value={ans} onChange={(e) => handleCheckbox(e, index)}/> */}
-                <input
-                  onChange={(e) => handleInputChange(index, e)}
-                  type="text"
-                  value={ans?.ans}
-                  className="form_input"
-                />
-
-                {index > 2 && (
-                  <FaTrash
-                    className="delete_icon"
-                    onClick={() => handleRemoveInput(index)}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="form_field">
-            <label className="form_label">Question Valid Answer</label>
-            <input
-              value={questionData?.question_valid_answer}
-              type="text"
-              className="form_input"
-              onChange={(e) =>
-                setQuestionsData({
-                  ...questionData,
-                  question_valid_answer: e.target.value,
-                })
-              }
-            />
-          </div>
-
-          <div className="form_field">
-            <label className="form_label">Question Image</label>
-            <input
-              type="file"
-              className="form_input"
-              onChange={(e) => {
-                setImgs({
-                  file: e.target.files[0],
-                  url: URL.createObjectURL(e.target.files[0]),
-                });
-              }}
-            />
-          </div>
-
-          {imgs?.url && (
-            <img
-              style={{ width: "150px", height: "150px", borderRadius: "10px" }}
-              src={imgs?.url}
-            />
-          )}
-
-          <div className="form_field">
-            <label className="form_label">Question voice</label>
-            <input
-              type="file"
-              className="form_input"
-              onChange={(e) => {
-                setVoice(e.target.files[0]);
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Question pdf</label>
-            <input
-              type="file"
-              className="form_input"
-              onChange={(e) => {
-                setPdf(e.target.files[0]);
-              }}
-            />
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        title="Edit Question"
-        open={editModal}
-        onCancel={() => setEditModal(false)}
-        footer={[
-          <Button type="primary" key="submit" onClick={handleEditQuestion}>
-            {editLoading ? <Spinner animation="border" size="sm" /> : "Edit"}
-          </Button>,
-          <Button key="cancel" onClick={() => setEditModal(false)}>
-            Cancel
-          </Button>,
-        ]}
-      >
-        <form onSubmit={handleEditQuestion}>
-          <div className="form_field">
-            <label className="form_label">Question Text</label>
-            <input
-              value={rowData?.question_text}
-              type="text"
-              className="form_input"
-              onChange={(e) =>
-                setRowData({ ...rowData, question_text: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="form_field">
-            <div className="d-flex justify-content-between align-items-center">
-              <label className="form_label">Question Answers</label>
-              <FaPlus
-                onClick={() => {
-                  const updatedAnswers = [
-                    ...rowData?.question_answers?.split("//CAMP//"),
-                    "",
-                  ];
-                  setRowData({
-                    ...rowData,
-                    question_answers: updatedAnswers.join("//CAMP//"),
-                  });
-                }}
-                style={{ width: "20px", height: "20px" }}
-              />
-            </div>
-
-            {rowData?.question_answers?.split("//CAMP//")?.map((ans, index) => (
-              <div
-                className="d-flex justify-content-between align-items-center gap-3"
-                key={ans?.id}
-              >
-                <input
-                  onChange={(e) => {
-                    const updatedAnswers = [
-                      ...rowData.question_answers?.split("//CAMP//"),
-                    ];
-                    updatedAnswers[index] = e.target.value;
-                    setRowData({
-                      ...rowData,
-                      question_answers: updatedAnswers.join("//CAMP//"),
-                    });
-                  }}
-                  type="text"
-                  value={ans}
-                  className="form_input"
-                />
-
-                {index > 3 && (
-                  <FaTrash
-                    className="delete_icon"
-                    onClick={() => {
-                      setRowData({
-                        ...rowData,
-                        question_answers: rowData?.question_answers
-                          ?.split("//CAMP//")
-                          ?.filter((item, i) => i !== index)
-                          .join("//CAMP//"),
-                      });
-                    }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="form_field">
-            <label className="form_label">Question Valid Answer</label>
-            <input
-              value={rowData?.question_valid_answer}
-              type="text"
-              className="form_input"
-              onChange={(e) =>
-                setRowData({
-                  ...rowData,
-                  question_valid_answer: e.target.value,
-                })
-              }
-            />
-          </div>
-
-          <div className="form_field">
-            <label className="form_label">Question Image</label>
-            <input
-              type="file"
-              className="form_input"
-              onChange={(e) => {
-                setImgs({
-                  file: e.target.files[0],
-                  url: URL.createObjectURL(e.target.files[0]),
-                });
-              }}
-            />
-          </div>
-
-          {(imgs?.url || rowData?.question_image) && (
-            <div className="d-flex gap-3 align-items-center">
-              <img
-                style={{
-                  width: "150px",
-                  height: "150px",
-                  borderRadius: "10px",
-                }}
-                src={imgs?.url || rowData?.question_image}
-              />
-
-              <FaTrash
-                className="delete_icon"
-                onClick={() => setRowData({ ...rowData, question_image: null })}
-              />
-            </div>
-          )}
-        </form>
-      </Modal>
-
+      {/* ==================== Attachments Modal ==================== */}
       <Modal
         title="Question Attachments"
-        open={AttachmentsModal}
-        onCancel={() => setAttachmentsModal(null)}
+        open={isAttachmentsModalOpen}
+        onCancel={closeAttachmentsModal}
         footer={[
-          <Button key="cancel" onClick={() => setAttachmentsModal(null)}>
-            Cancel
+          <Button key="close" onClick={closeAttachmentsModal}>
+            Close
           </Button>,
         ]}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-evenly",
-          }}
-        >
-          {AttachmentsModal?.question_audio ? (
-            <>
-              <audio src={AttachmentsModal?.question_audio} controls>
-                Your browser does not support the audio element.
-              </audio>
-            </>
-          ) : null}
-
-          {AttachmentsModal?.question_pdf ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <label>pdf</label>
-                <FaBook
-                  onClick={() => window.open(AttachmentsModal?.question_pdf)}
+        {!selectedQuestion?.question_audio &&
+        !selectedQuestion?.question_pdf ? (
+          <p style={{ textAlign: "center", color: "#999", padding: 20 }}>
+            No attachments available for this question
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {selectedQuestion?.question_audio && (
+              <div>
+                <label
                   style={{
-                    width: "30px",
-                    height: "30px",
-                    color: "orange",
-                    cursor: "pointer",
-                    margin: "0px 10px",
+                    fontWeight: 500,
+                    marginBottom: 8,
+                    display: "block",
                   }}
+                >
+                  Audio:
+                </label>
+                <audio
+                  src={selectedQuestion.question_audio}
+                  controls
+                  style={{ width: "100%" }}
                 />
               </div>
-            </>
-          ) : null}
-        </div>
+            )}
+
+            {selectedQuestion?.question_pdf && (
+              <div>
+                <label
+                  style={{
+                    fontWeight: 500,
+                    marginBottom: 8,
+                    display: "block",
+                  }}
+                >
+                  PDF:
+                </label>
+                <Button
+                  icon={<FaBook style={{ marginRight: 8 }} />}
+                  onClick={() =>
+                    window.open(selectedQuestion.question_pdf, "_blank")
+                  }
+                >
+                  Open PDF
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

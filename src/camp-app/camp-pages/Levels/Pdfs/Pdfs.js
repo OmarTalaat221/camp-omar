@@ -1,29 +1,77 @@
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../../component/common/breadcrumb/breadcrumb";
-import { Button, Modal, Table } from "antd";
+import { Button, Modal, Table, Form, Input, Upload } from "antd";
 import { FaBook, FaTrashCan } from "react-icons/fa6";
-import { Spinner } from "reactstrap";
+import { UploadOutlined } from "@ant-design/icons";
 import { BASE_URL } from "../../../../Api/baseUrl";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { imageUploader } from "../../camp-utils";
 
 const Pdfs = () => {
-  const [Pdfs, setPdfs] = useState([]);
-  const [newPdf, setnewPdf] = useState();
-  const [EditPdfLink, setEditPdfLink] = useState();
+  // Form instances
+  const [addForm] = Form.useForm();
+  const [editForm] = Form.useForm();
 
   const { section_id } = useParams();
-  const [AddModal, setAddModal] = useState(false);
-  const [Loading, setLoading] = useState(false);
-  const [DeleteModal, setDeleteModal] = useState(null);
-  const [EditModal, setEditModal] = useState(null);
 
-  const [NewPdfData, setNewPdfData] = useState({
-    pdf_name: null,
-    pdf_link: null,
-  });
+  // Data States
+  const [Pdfs, setPdfs] = useState([]);
+  const [selectedPdf, setSelectedPdf] = useState(null);
+
+  // File States
+  const [newPdfFile, setNewPdfFile] = useState(null);
+  const [editPdfFile, setEditPdfFile] = useState(null);
+
+  // Modal States (boolean only)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Loading States
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Modal Control Functions
+  const openAddModal = () => {
+    addForm.resetFields();
+    setNewPdfFile(null);
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    addForm.resetFields();
+    setNewPdfFile(null);
+  };
+
+  const openEditModal = (row) => {
+    setSelectedPdf({ ...row });
+    editForm.setFieldsValue({
+      pdf_name: row.pdf_name,
+    });
+    setEditPdfFile(null);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedPdf(null);
+    editForm.resetFields();
+    setEditPdfFile(null);
+  };
+
+  const openDeleteModal = (row) => {
+    setSelectedPdf(row);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setSelectedPdf(null);
+  };
 
   const columns = [
     {
@@ -34,24 +82,22 @@ const Pdfs = () => {
     {
       id: "pdf_name",
       dataIndex: "pdf_name",
-      title: "pdf name",
+      title: "PDF Name",
     },
     {
       id: "pdf_link",
       dataIndex: "pdf_link",
-      title: "pdf link",
+      title: "PDF Link",
       render: (text, row) => (
-        <>
-          <FaBook
-            onClick={() => window.open(row?.pdf_link)}
-            style={{
-              width: "30px",
-              height: "30px",
-              color: "orange",
-              cursor: "pointer",
-            }}
-          />
-        </>
+        <FaBook
+          onClick={() => window.open(row?.pdf_link, "_blank")}
+          style={{
+            width: "30px",
+            height: "30px",
+            color: "orange",
+            cursor: "pointer",
+          }}
+        />
       ),
     },
     {
@@ -59,306 +105,414 @@ const Pdfs = () => {
       dataIndex: "x",
       title: "Actions",
       render: (text, row) => (
-        <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <FaTrashCan
             className="del_icon"
-            style={{ cursor: "pointer" }}
-            onClick={() => setDeleteModal(row)}
+            style={{ cursor: "pointer", color: "red" }}
+            onClick={() => openDeleteModal(row)}
           />
-          <Button
-            style={{ margin: "0px 10px" }}
-            onClick={() => setEditModal(row)}
-          >
-            Edit
-          </Button>
+          <Button onClick={() => openEditModal(row)}>Edit</Button>
         </div>
       ),
     },
   ];
 
-  function handleGetPdfs() {
+  // API Calls
+  const handleGetPdfs = () => {
+    setFetchLoading(true);
     const data_send = {
       section_id: section_id,
     };
     axios
       .post(BASE_URL + "/admin/content/select_pdfs.php", data_send)
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setPdfs(res?.data?.message);
         }
-      });
-  }
+      })
+      .catch((e) => console.log(e))
+      .finally(() => setFetchLoading(false));
+  };
 
   useEffect(() => {
     handleGetPdfs();
   }, []);
 
-  async function handleAddPdf() {
-    setLoading(true);
+  // Upload PDF file
+  const uploadPdfFile = async (file) => {
     const formData = new FormData();
-    formData.append("file_attachment", newPdf);
-    await axios
-      .post(
-        "https://campforenglish.net/camp_for_english/admin/upload_pdf.php",
-        formData
-      )
-      .then((resPdf) => {
-        console.log(resPdf);
+    formData.append("file_attachment", file);
 
-        if (resPdf?.data?.status == "success") {
-          const dataSend = {
-            section_id: section_id,
-            pdf_name: NewPdfData?.pdf_name,
-            pdf_link: resPdf.data.message,
-          };
+    const response = await axios.post(
+      "https://campforenglish.net/camp_for_english/admin/upload_pdf.php",
+      formData
+    );
 
-          console.log(dataSend);
+    if (response?.data?.status === "success") {
+      return response.data.message;
+    } else {
+      throw new Error(response?.data?.message || "Failed to upload file");
+    }
+  };
 
-          axios
-            .post(
-              BASE_URL + "/admin/content/add_pdf.php",
-              JSON.stringify(dataSend)
-            )
-            .then((res) => {
-              if (res?.data?.status == "success") {
-                toast.success(res?.data?.message);
-                handleGetPdfs();
-                setAddModal(false);
-              } else {
-                toast.error(res?.data.message);
-              }
-            })
-            .finally(() => {
-              setLoading(false);
-            })
-            .catch((e) => console.log(e));
-        }
-      });
-  }
+  // Add PDF
+  const handleAddPdf = async (values) => {
+    if (!newPdfFile) {
+      toast.error("Please select a PDF/PowerPoint file");
+      return;
+    }
 
-  const handleDeletePdf = (id) => {
+    setAddLoading(true);
+
+    try {
+      const uploadedUrl = await uploadPdfFile(newPdfFile);
+
+      const dataSend = {
+        section_id: section_id,
+        pdf_name: values.pdf_name,
+        pdf_link: uploadedUrl,
+      };
+
+      const res = await axios.post(
+        BASE_URL + "/admin/content/add_pdf.php",
+        JSON.stringify(dataSend)
+      );
+
+      if (res?.data?.status === "success") {
+        toast.success(res?.data?.message);
+        handleGetPdfs();
+        closeAddModal();
+      } else {
+        toast.error(res?.data?.message);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("An error occurred while adding the file");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  // Edit PDF
+  const handleEditPdf = async (values) => {
+    setEditLoading(true);
+
+    try {
+      let pdfLink = selectedPdf?.pdf_link;
+
+      // If new file selected, upload it
+      if (editPdfFile) {
+        pdfLink = await uploadPdfFile(editPdfFile);
+      }
+
+      const dataSend = {
+        pdf_name: values.pdf_name,
+        pdf_link: pdfLink,
+        pdf_id: selectedPdf?.pdf_id,
+      };
+
+      const res = await axios.post(
+        BASE_URL + "/admin/content/edit_pdf.php",
+        JSON.stringify(dataSend)
+      );
+
+      if (res?.data?.status === "success") {
+        toast.success(res?.data?.message);
+        handleGetPdfs();
+        closeEditModal();
+      } else {
+        toast.error(res?.data?.message);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("An error occurred while editing the file");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Delete PDF
+  const handleDeletePdf = async () => {
+    setDeleteLoading(true);
+
     const dataSend = {
-      pdf_id: id,
+      pdf_id: selectedPdf?.pdf_id,
     };
+
     axios
       .post(
         BASE_URL + "/admin/content/delete_pdf.php",
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res.data.message);
-          setDeleteModal(false);
           handleGetPdfs();
+          closeDeleteModal();
         } else {
           toast.error(res.data.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("An error occurred while deleting the file");
+      })
+      .finally(() => setDeleteLoading(false));
   };
 
-  async function handleEditPdf() {
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("file_attachment", EditPdfLink);
-    await axios
-      .post(
-        "https://campforenglish.net/camp_for_english/admin/upload_pdf.php",
-        formData
-      )
-      .then((resPdf) => {
-        console.log(resPdf);
+  // File validation
+  const validateFile = (file) => {
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ];
 
-        const dataSend = {
-          pdf_name: EditModal?.pdf_name,
-          pdf_link: EditPdfLink ? resPdf.data.message : EditModal.pdf_link,
-          pdf_id: EditModal.pdf_id,
-        };
+    const isAllowed = allowedTypes.includes(file.type);
+    if (!isAllowed) {
+      toast.error("Only PDF and PowerPoint files are allowed!");
+    }
 
-        console.log(dataSend);
-
-        axios
-          .post(
-            BASE_URL + "/admin/content/edit_pdf.php",
-            JSON.stringify(dataSend)
-          )
-          .then((res) => {
-            if (res?.data?.status == "success") {
-              toast.success(res?.data?.message);
-              handleGetPdfs();
-              setEditModal(false);
-            } else {
-              toast.error(res?.data.message);
-            }
-          })
-          .finally(() => {
-            setLoading(false);
-          })
-          .catch((e) => console.log(e));
-      });
-  }
+    return false; // Prevent auto upload
+  };
 
   return (
     <>
-      <Breadcrumbs parent="sections" title=" section files" />
+      <Breadcrumbs parent="sections" title="Section Files" />
       <div className="container-fluid">
         <div className="row">
           <div className="col-sm-12">
             <div className="card">
               <div className="card-header">
-                <h5>section files</h5>
-                <div className="card-body">
-                  <button
-                    className="btn btn-primary my-4"
-                    onClick={() => setAddModal(true)}
-                  >
-                    Add pdf/powerpoint
-                  </button>
-                </div>
-
-                <Table columns={columns} dataSource={Pdfs} />
+                <h5>Section Files</h5>
+                <button
+                  className="btn btn-primary my-4"
+                  onClick={() => openAddModal()}
+                >
+                  Add pdf/powerpoint
+                </button>
+              </div>
+              <div className="card-body">
+                <Table
+                  columns={columns}
+                  dataSource={Pdfs}
+                  loading={fetchLoading}
+                  rowKey="pdf_id"
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Add Modal */}
       <Modal
-        title="Add pdf/powerpoint"
-        open={AddModal}
-        onCancel={() => setAddModal(false)}
-        footer={[
-          <Button type="primary" key="submit" onClick={() => handleAddPdf()}>
-            {Loading ? (
-              <Spinner style={{ width: "15px", height: "15px" }} />
-            ) : (
-              "Add"
-            )}
-          </Button>,
-          <Button key="cancel" onClick={() => setAddModal(false)}>
-            Cancel
-          </Button>,
-        ]}
+        title="Add PDF/PowerPoint"
+        open={isAddModalOpen}
+        onCancel={closeAddModal}
+        footer={null}
+        destroyOnClose
       >
-        <form>
-          <div className="form_field">
-            <label className="form_label">pdf/powerpoint name</label>
-            <input
-              type="text"
-              className="form_input"
-              onChange={(e) =>
-                setNewPdfData({ ...NewPdfData, pdf_name: e.target.value })
-              }
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">pdf/powerpoint</label>
-            <input
-              type="file"
-              className="form_input"
-              onChange={(e) => {
-                setnewPdf(e.target.files[0]);
+        <Form
+          form={addForm}
+          layout="vertical"
+          onFinish={handleAddPdf}
+          autoComplete="off"
+        >
+          <Form.Item
+            label="PDF/PowerPoint Name"
+            name="pdf_name"
+            rules={[
+              { required: true, message: "Please enter file name" },
+              { min: 2, message: "Name must be at least 2 characters" },
+              { max: 100, message: "Name must be less than 100 characters" },
+            ]}
+          >
+            <Input placeholder="Enter file name" />
+          </Form.Item>
+
+          <Form.Item
+            label="PDF/PowerPoint File"
+            required
+            extra="Allowed: PDF, PPT, PPTX "
+          >
+            <Upload
+              beforeUpload={(file) => {
+                validateFile(file);
+                setNewPdfFile(file);
+                return false;
               }}
-            />
-          </div>
-        </form>
+              onRemove={() => setNewPdfFile(null)}
+              maxCount={1}
+              accept=".pdf,.ppt,.pptx"
+              fileList={
+                newPdfFile
+                  ? [
+                      {
+                        uid: "-1",
+                        name: newPdfFile.name,
+                        status: "done",
+                      },
+                    ]
+                  : []
+              }
+            >
+              <Button icon={<UploadOutlined />}>Select File</Button>
+            </Upload>
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+            <Button
+              style={{ marginRight: 8 }}
+              onClick={closeAddModal}
+              disabled={addLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={addLoading}>
+              Add
+            </Button>
+          </Form.Item>
+        </Form>
       </Modal>
 
+      {/* Edit Modal */}
       <Modal
-        title="Delete pdf/powerpoint"
-        open={DeleteModal}
-        onCancel={() => setDeleteModal(null)}
-        footer={[
-          <Button
-            type="primary"
-            key="submit"
-            onClick={() => handleDeletePdf(DeleteModal?.pdf_id)}
-          >
-            Delete
-          </Button>,
-          <Button key="cancel" onClick={() => setDeleteModal(null)}>
-            Cancel
-          </Button>,
-        ]}
+        title="Edit PDF/PowerPoint"
+        open={isEditModalOpen}
+        onCancel={closeEditModal}
+        footer={null}
+        destroyOnClose
       >
-        <h3>Are you sure you want to delete this pdf/powerpoint</h3>
-        <p>
-          <strong>pdf/powerpoint name:</strong> {DeleteModal?.pdf_name}
-        </p>
-      </Modal>
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={handleEditPdf}
+          autoComplete="off"
+        >
+          <Form.Item
+            label="PDF/PowerPoint Name"
+            name="pdf_name"
+            rules={[
+              { required: true, message: "Please enter file name" },
+              { min: 2, message: "Name must be at least 2 characters" },
+              { max: 100, message: "Name must be less than 100 characters" },
+            ]}
+          >
+            <Input placeholder="Enter file name" />
+          </Form.Item>
 
-      <Modal
-        title="Edit pdf/powerpoint"
-        open={EditModal}
-        onCancel={() => setEditModal(null)}
-        footer={[
-          <Button type="primary" key="submit" onClick={() => handleEditPdf()}>
-            {Loading ? (
-              <Spinner style={{ width: "15px", height: "15px" }} />
-            ) : (
-              "Add"
-            )}
-          </Button>,
-          <Button key="cancel" onClick={() => setEditModal(null)}>
-            Cancel
-          </Button>,
-        ]}
-      >
-        <form>
-          <div className="form_field">
-            <label className="form_label">pdf/powerpoint name</label>
-            <input
-              type="text"
-              className="form_input"
-              value={EditModal?.pdf_name || " "}
-              onChange={(e) =>
-                setEditModal({ ...EditModal, pdf_name: e.target.value })
-              }
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">pdf/powerpoint</label>
-            <input
-              type="file"
-              className="form_input"
-              onChange={(e) => {
-                setEditPdfLink(e.target.files[0]);
-              }}
-            />
-          </div>
-          <div
-            style={{
-              width: "30%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
+          <Form.Item
+            label="PDF/PowerPoint File"
+            extra="Leave empty to keep existing file"
           >
-            {EditModal?.pdf_link ? (
-              <>
+            <Upload
+              beforeUpload={(file) => {
+                validateFile(file);
+                setEditPdfFile(file);
+                return false;
+              }}
+              onRemove={() => setEditPdfFile(null)}
+              maxCount={1}
+              accept=".pdf,.ppt,.pptx"
+              fileList={
+                editPdfFile
+                  ? [
+                      {
+                        uid: "-1",
+                        name: editPdfFile.name,
+                        status: "done",
+                      },
+                    ]
+                  : []
+              }
+            >
+              <Button icon={<UploadOutlined />}>Select New File</Button>
+            </Upload>
+          </Form.Item>
+
+          {/* Current File Preview */}
+          {selectedPdf?.pdf_link && !editPdfFile && (
+            <Form.Item label="Current File">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                  padding: "10px",
+                  border: "1px solid #d9d9d9",
+                  borderRadius: "6px",
+                  backgroundColor: "#fafafa",
+                }}
+              >
                 <FaBook
-                  onClick={() => window.open(EditModal?.pdf_link)}
+                  onClick={() => window.open(selectedPdf?.pdf_link, "_blank")}
                   style={{
-                    width: "30px",
-                    height: "30px",
+                    width: "25px",
+                    height: "25px",
                     color: "orange",
                     cursor: "pointer",
                   }}
                 />
+                <span style={{ flex: 1 }}>Click icon to view current file</span>
                 <FaTrashCan
                   style={{
-                    width: "20px",
-                    height: "20px",
+                    width: "18px",
+                    height: "18px",
                     color: "red",
                     cursor: "pointer",
                   }}
-                  onClick={() => setEditModal({ ...EditModal, pdf_link: null })}
+                  onClick={() =>
+                    setSelectedPdf({ ...selectedPdf, pdf_link: null })
+                  }
                 />
-              </>
-            ) : null}
-          </div>
-        </form>
+              </div>
+            </Form.Item>
+          )}
+
+          <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+            <Button
+              style={{ marginRight: 8 }}
+              onClick={closeEditModal}
+              disabled={editLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="primary" htmlType="submit" loading={editLoading}>
+              Save
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Delete Modal */}
+      <Modal
+        title="Delete PDF/PowerPoint"
+        open={isDeleteModalOpen}
+        onCancel={closeDeleteModal}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={closeDeleteModal}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>,
+          <Button
+            key="delete"
+            type="primary"
+            danger
+            onClick={handleDeletePdf}
+            loading={deleteLoading}
+          >
+            Delete
+          </Button>,
+        ]}
+      >
+        <p>Are you sure you want to delete this file?</p>
+        <p>
+          <strong>File Name:</strong> {selectedPdf?.pdf_name}
+        </p>
       </Modal>
     </>
   );

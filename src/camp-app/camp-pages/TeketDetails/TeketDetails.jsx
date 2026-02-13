@@ -1,15 +1,20 @@
-import React, {useEffect, useState} from "react";
-import {Navigate, useLocation, useNavigate, useParams} from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import {
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import "./style.css";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
-import {message} from "antd";
-import {BsSend} from "react-icons/bs";
-import {BASE_URL} from "../../../Api/baseUrl";
+import { message } from "antd";
+import { BsSend } from "react-icons/bs";
+import { BASE_URL } from "../../../Api/baseUrl";
 import axios from "axios";
-import {toast} from "react-toastify";
+import { toast } from "react-toastify";
 
 const TeketDetails = () => {
-  const {id} = useParams();
+  const { id } = useParams();
   const location = useLocation();
   const data = location?.state?.tecketData;
   const navigate = useNavigate();
@@ -58,52 +63,49 @@ const TeketDetails = () => {
 
   return (
     <>
-      <Breadcrumbs parent='Technical support' title='teckets / reply' />
+      <Breadcrumbs parent="Technical support" title="tickets / reply" />
 
       <div className="container-fluid px-3 px-md-5">
-        <div className='d-flex flex-column flex-md-row gap-3 gap-md-5 mb-4'>
-          <div className='d-flex flex-column gap-2'>
-            <h6 className='fw-bolder mb-0'>Name : </h6>
-            <h6 className='fw-bolder mb-0'>Email : </h6>
-            <h6 className='fw-bolder mb-0'>Phone : </h6>
-            <h6 className='fw-bolder mb-0'>level : </h6>
+        <div className="d-flex flex-column flex-md-row gap-3 gap-md-5 mb-4">
+          <div className="d-flex flex-column gap-2">
+            <h6 className="fw-bolder mb-0">Name : </h6>
+            <h6 className="fw-bolder mb-0">Email : </h6>
+            <h6 className="fw-bolder mb-0">Phone : </h6>
+            <h6 className="fw-bolder mb-0">level : </h6>
           </div>
-          <div className='d-flex flex-column gap-2'>
-            <h6 className='mb-0'> {data?.student_data.name}</h6>
-            <h6 className='mb-0'> {data?.student_data.email}</h6>
-            <h6 className='mb-0'> {data?.student_data.phone}</h6>
-            <h6 className='mb-0'> {data?.student_level_sub}</h6>
+          <div className="d-flex flex-column gap-2">
+            <h6 className="mb-0"> {data?.student_data.name}</h6>
+            <h6 className="mb-0"> {data?.student_data.email}</h6>
+            <h6 className="mb-0"> {data?.student_data.phone}</h6>
+            <h6 className="mb-0"> {data?.student_level_sub}</h6>
           </div>
         </div>
 
         <div className="chat-container">
-          <div className='d-flex flex-column gap-4 mt-4'>
-            <div className='message-blue'>
-              <p className='message-content fs-5 mb-0'>{data?.question_text}</p>
+          <div className="d-flex flex-column gap-4 mt-4">
+            <div className="message-blue">
+              <p className="message-content fs-5 mb-0">{data?.question_text}</p>
             </div>
 
             {sendMessage && (
-              <div className='message-orange'>
-                <p className='message-content fs-5 mb-0'>{sendMessage}</p>
+              <div className="message-orange">
+                <p className="message-content fs-5 mb-0">{sendMessage}</p>
               </div>
             )}
           </div>
 
-          <form className='form-container' onSubmit={onSendMessage}>
-            <div className='input-wrapper'>
+          <form className="form-container" onSubmit={onSendMessage}>
+            <div className="input-wrapper">
               <textarea
                 rows={5}
                 onChange={(e) => setMessage(e.target.value)}
-                type='text'
+                type="text"
                 value={message}
-                className='message-input'
-                placeholder='Reply to Message'
+                className="message-input"
+                placeholder="Reply to Message"
               />
-              <button
-                type='submit'
-                className='send-button'
-              >
-                {false ? <div className='loading-spinner'></div> : <BsSend />}
+              <button type="submit" className="send-button">
+                {false ? <div className="loading-spinner"></div> : <BsSend />}
               </button>
             </div>
           </form>

@@ -8,14 +8,26 @@ import { toast } from "react-toastify";
 import { FaEllipsisVertical } from "react-icons/fa6";
 
 const Refunds = () => {
+  // Data States
   const [Refunds, setRefunds] = useState([]);
-  const [AddRefundsModal, setAddRefundsModal] = useState(false);
-  const [EditRefundsModal, setEditRefundsModal] = useState(null);
-  const [DeleteRefundModal, setDeleteRefundModal] = useState(null);
+  const [Branches, setBranches] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [selectedRefund, setSelectedRefund] = useState(null);
+
+  // Modal States (boolean only)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Loading States
+  const [addLoading, setAddLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(false);
 
   const AdminData = JSON.parse(localStorage.getItem("AdminData"));
 
-  const [NewRefundsData, setNewRefundsData] = useState({
+  const initialRefundData = {
     refunds_title: null,
     refunds_description: null,
     refunds_price: null,
@@ -24,7 +36,64 @@ const Refunds = () => {
     branch_id: null,
     admin_id: AdminData[0].admin_id,
     sub_id: null,
-  });
+  };
+
+  const [NewRefundsData, setNewRefundsData] = useState(initialRefundData);
+
+  const [Category, setCategory] = useState([
+    { value: "groceries", label: "Groceries" },
+    { value: "electricity-bill", label: "Electricity Bill" },
+    { value: "fuel", label: "Fuel" },
+  ]);
+
+  // Modal Control Functions
+  const openAddModal = () => {
+    setNewRefundsData(initialRefundData);
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setNewRefundsData(initialRefundData);
+  };
+
+  const openEditModal = (row) => {
+    setSelectedRefund({ ...row });
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedRefund(null);
+  };
+
+  const openDeleteModal = (row) => {
+    setSelectedRefund(row);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setSelectedRefund(null);
+  };
+
+  // Helper Functions
+  const getCategoryOption = (categoryValue) => {
+    if (!categoryValue) return null;
+    const found = Category.find((cat) => cat.value === categoryValue);
+    if (found) return found;
+    return { value: categoryValue, label: categoryValue };
+  };
+
+  const getBranchOption = (branchId) => {
+    if (!branchId) return null;
+    return BranchesOptions.find((branch) => branch.value === branchId) || null;
+  };
+
+  const getStudentOption = (subId) => {
+    if (!subId) return null;
+    return StudentsOptions.find((student) => student.value === subId) || null;
+  };
 
   const columns = [
     {
@@ -37,11 +106,7 @@ const Refunds = () => {
       dataIndex: "name",
       title: "student name",
       render: (text, row) => {
-        return (
-          <>
-            <p>{row?.student_data?.name}</p>
-          </>
-        );
+        return <p>{row?.student_data?.name}</p>;
       },
     },
     {
@@ -63,6 +128,7 @@ const Refunds = () => {
       id: "refunds_price",
       dataIndex: "refunds_price",
       title: "refunds price",
+      render: (text) => <p style={{ color: "red" }}>{text}</p>,
     },
     {
       id: "refunds_date",
@@ -74,26 +140,22 @@ const Refunds = () => {
       render: (text, row) => {
         const items = [
           {
-            key: 5,
+            key: "delete",
             label: (
               <button
                 className="btn btn-primary"
-                onClick={() => {
-                  setDeleteRefundModal(row);
-                }}
+                onClick={() => openDeleteModal(row)}
               >
                 Delete Refund
               </button>
             ),
           },
           {
-            key: 6,
+            key: "edit",
             label: (
               <button
                 className="btn btn-primary"
-                onClick={() => {
-                  setEditRefundsModal(row);
-                }}
+                onClick={() => openEditModal(row)}
               >
                 Edit Refund
               </button>
@@ -102,12 +164,7 @@ const Refunds = () => {
         ];
         return (
           <div className="d-flex gap-2 align-items-center">
-            <Dropdown
-              menu={{
-                items,
-              }}
-              placement="bottom"
-            >
+            <Dropdown menu={{ items }} placement="bottom">
               <Button
                 style={{ display: "flex", flexDirection: "column", gap: "3px" }}
               >
@@ -120,60 +177,53 @@ const Refunds = () => {
     },
   ];
 
-  const [Category, setCategory] = useState([
-    { value: "groceries", label: "Groceries" },
-    { value: "electricity-bill", label: "Electricity Bill" },
-    { value: "fuel", label: "Fuel" },
-  ]);
-
+  // API Calls
   const getRefunds = async () => {
+    setFetchLoading(true);
     axios
       .get(BASE_URL + `/admin/refunds/get_refund.php`)
       .then((res) => {
-        console.log(res);
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           setRefunds(res.data.message);
+        }
+      })
+      .catch((e) => console.log(e))
+      .finally(() => setFetchLoading(false));
+  };
+
+  const handleGetBranches = () => {
+    axios
+      .get(BASE_URL + "/admin/branches/select_branch.php")
+      .then((res) => {
+        if (res?.data?.status === "success") {
+          setBranches(res?.data?.message);
         }
       })
       .catch((e) => console.log(e));
   };
 
-  const [Branches, setBranches] = useState([]);
-
-  function handleGetBranches() {
-    axios
-      .get(BASE_URL + "/admin/branches/select_branch.php")
-      .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
-          setBranches(res?.data?.message);
-        }
-      })
-      .catch((e) => console.log(e));
-  }
-
-  const BranchesOptions = Branches.map((branche) => {
-    return { value: branche?.branch_id, label: branche?.branch_name };
-  });
-
-  const [students, setStudents] = useState([]);
-  function handleGetStudents() {
+  const handleGetStudents = () => {
     axios
       .get(
         BASE_URL + "/admin/subscription/select_student_to_activate_level.php"
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setStudents(res?.data?.message);
         }
       })
       .catch((e) => console.log(e));
-  }
+  };
 
-  const StudentsOptions = students.map((student) => {
-    return { value: student?.subscription_id, label: student?.student_name };
-  });
+  const BranchesOptions = Branches.map((branche) => ({
+    value: branche?.branch_id,
+    label: branche?.branch_name,
+  }));
+
+  const StudentsOptions = students.map((student) => ({
+    value: student?.subscription_id,
+    label: student?.student_name,
+  }));
 
   useEffect(() => {
     getRefunds();
@@ -193,87 +243,93 @@ const Refunds = () => {
       sub_id: NewRefundsData?.sub_id,
     };
 
-    console.log(dataSend);
-
+    setAddLoading(true);
     axios
       .post(
         BASE_URL + `/admin/refunds/add_refund.php`,
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
-          setAddRefundsModal(false);
+          closeAddModal();
           getRefunds();
         } else {
           toast.error(res.data.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("Something went wrong!");
+      })
+      .finally(() => setAddLoading(false));
   };
 
   const handelEditRefund = async () => {
     const dataSend = {
-      refunds_title: EditRefundsModal?.refunds_title,
-      refunds_description: EditRefundsModal?.refunds_description,
-      refunds_price: EditRefundsModal?.refunds_price,
-      refunds_category: EditRefundsModal?.refunds_category,
-      refunds_date: EditRefundsModal?.refunds_date,
-      refunds_id: EditRefundsModal?.id,
+      refunds_title: selectedRefund?.refunds_title,
+      refunds_description: selectedRefund?.refunds_description,
+      refunds_price: selectedRefund?.refunds_price,
+      refunds_category: selectedRefund?.refunds_category,
+      refunds_date: selectedRefund?.refunds_date,
+      refunds_id: selectedRefund?.id,
+      branch_id: selectedRefund?.branch_id,
     };
 
-    console.log(dataSend);
-
+    setEditLoading(true);
     axios
       .post(
         BASE_URL + `/admin/refunds/edit_refund.php`,
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
-          setEditRefundsModal(null);
+          closeEditModal();
           getRefunds();
         } else {
           toast.error(res.data.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("Something went wrong!");
+      })
+      .finally(() => setEditLoading(false));
   };
 
-  const handelDeleteRefund = async (id) => {
+  const handelDeleteRefund = async () => {
     const dataSend = {
-      refunds_id: id,
+      refunds_id: selectedRefund?.id,
     };
 
-    console.log(dataSend);
-
+    setDeleteLoading(true);
     axios
       .post(
         BASE_URL + `/admin/refunds/delete_refund.php`,
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
-          setDeleteRefundModal(null);
+          closeDeleteModal();
           getRefunds();
         } else {
           toast.error(res.data.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => {
+        console.log(e);
+        toast.error("Something went wrong!");
+      })
+      .finally(() => setDeleteLoading(false));
   };
 
-  function handelCreatOption(inputValue) {
+  const handelCreatOption = (inputValue) => {
     const newCategory = { value: inputValue.toLowerCase(), label: inputValue };
-    console.log(newCategory, inputValue);
-
     setCategory((prevCategory) => [...prevCategory, newCategory]);
-  }
+  };
+
   return (
     <>
       <Breadcrumbs parent="Refund" title="Refund List" />
@@ -286,246 +342,282 @@ const Refunds = () => {
                 <Button
                   color="primary btn-pill"
                   style={{ margin: "10px 0" }}
-                  onClick={() => setAddRefundsModal(true)}
+                  onClick={openAddModal}
                 >
                   Add Refund
                 </Button>
               </div>
               <div className="card-body">
                 <Table
-                  scroll={{
-                    x: "max-content",
-                  }}
+                  loading={fetchLoading}
+                  scroll={{ x: "max-content" }}
                   columns={columns}
                   dataSource={Refunds}
+                  rowKey="id"
                 />
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Add Modal */}
       <Modal
         title="Add Refund"
-        open={AddRefundsModal}
-        onCancel={() => setAddRefundsModal(false)}
+        open={isAddModalOpen}
+        onCancel={closeAddModal}
         footer={[
-          <Button onClick={handelAddRefund}>Add</Button>,
-          <Button key="cancel" onClick={() => setAddRefundsModal(false)}>
+          <Button
+            key="add"
+            type="primary"
+            loading={addLoading}
+            onClick={handelAddRefund}
+          >
+            Add
+          </Button>,
+          <Button key="cancel" onClick={closeAddModal} disabled={addLoading}>
             Cancel
           </Button>,
         ]}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">Refund's student</label>
-            <Select
-              placeholder="pick Refund's student"
-              options={StudentsOptions}
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  sub_id: e,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's title</label>
-            <input
-              type="text"
-              className="form_input"
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  refunds_title: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's description</label>
-            <input
-              type="text"
-              className="form_input"
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  refunds_description: e.target.value,
-                });
-              }}
-            />
-          </div>
-          {/* <div className="form_field">
-            <label className="form_label">Refund's category</label>
-            <CreatableSelect
-              placeholder="you can pick or write an option"
-              options={Category}
-              onCreateOption={handelCreatOption}
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  refunds_category: e?.value,
-                });
-              }}
-            />
-          </div> */}
-          <div className="form_field">
-            <label className="form_label">Refund's price</label>
-            <input
-              type="number"
-              className="form_input"
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  refunds_price: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's branche</label>
-            <Select
-              placeholder="pick Refund's branch"
-              options={BranchesOptions}
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  branch_id: e,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's date</label>
-            <input
-              type="date"
-              className="form_input"
-              onChange={(e) => {
-                setNewRefundsData({
-                  ...NewRefundsData,
-                  refunds_date: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
+        <div className="form_field">
+          <label className="form_label">Refund's student</label>
+          <Select
+            showSearch={true}
+            filterOption={(input, option) =>
+              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+            placeholder="pick Refund's student"
+            options={StudentsOptions}
+            value={NewRefundsData.sub_id}
+            onChange={(e) => {
+              setNewRefundsData({
+                ...NewRefundsData,
+                sub_id: e,
+              });
+            }}
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div className="form_field">
+          <label className="form_label">Refund's title</label>
+          <input
+            type="text"
+            className="form_input"
+            value={NewRefundsData.refunds_title || ""}
+            onChange={(e) => {
+              setNewRefundsData({
+                ...NewRefundsData,
+                refunds_title: e.target.value,
+              });
+            }}
+          />
+        </div>
+        <div className="form_field">
+          <label className="form_label">Refund's description</label>
+          <input
+            type="text"
+            className="form_input"
+            value={NewRefundsData.refunds_description || ""}
+            onChange={(e) => {
+              setNewRefundsData({
+                ...NewRefundsData,
+                refunds_description: e.target.value,
+              });
+            }}
+          />
+        </div>
+        <div className="form_field">
+          <label className="form_label">Refund's price</label>
+          <input
+            type="number"
+            className="form_input"
+            value={NewRefundsData.refunds_price || ""}
+            onChange={(e) => {
+              setNewRefundsData({
+                ...NewRefundsData,
+                refunds_price: e.target.value,
+              });
+            }}
+          />
+        </div>
+        <div className="form_field">
+          <label className="form_label">Refund's branch</label>
+          <Select
+            showSearch={true}
+            filterOption={(input, option) =>
+              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+            placeholder="pick Refund's branch"
+            options={BranchesOptions}
+            value={NewRefundsData.branch_id}
+            onChange={(e) => {
+              setNewRefundsData({
+                ...NewRefundsData,
+                branch_id: e,
+              });
+            }}
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div className="form_field">
+          <label className="form_label">Refund's date</label>
+          <input
+            type="date"
+            className="form_input"
+            value={NewRefundsData.refunds_date || ""}
+            onChange={(e) => {
+              setNewRefundsData({
+                ...NewRefundsData,
+                refunds_date: e.target.value,
+              });
+            }}
+          />
+        </div>
       </Modal>
 
+      {/* Edit Modal */}
       <Modal
-        title={`Edit Refund + ${EditRefundsModal?.name}`}
-        open={EditRefundsModal}
-        onCancel={() => setEditRefundsModal(null)}
+        title={`Edit Refund - ${selectedRefund?.student_data?.name || ""}`}
+        open={isEditModalOpen}
+        onCancel={closeEditModal}
         footer={[
-          <Button onClick={handelEditRefund}>Edit</Button>,
-          <Button key="cancel" onClick={() => setEditRefundsModal(null)}>
+          <Button
+            key="edit"
+            type="primary"
+            loading={editLoading}
+            onClick={handelEditRefund}
+          >
+            Edit
+          </Button>,
+          <Button key="cancel" onClick={closeEditModal} disabled={editLoading}>
             Cancel
           </Button>,
         ]}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">Refund's title</label>
-            <input
-              type="text"
-              className="form_input"
-              defaultValue={EditRefundsModal?.refunds_title || ""}
-              onChange={(e) => {
-                setEditRefundsModal({
-                  ...EditRefundsModal,
-                  refunds_title: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's description</label>
-            <input
-              type="text"
-              className="form_input"
-              defaultValue={EditRefundsModal?.refunds_description || ""}
-              onChange={(e) => {
-                setEditRefundsModal({
-                  ...EditRefundsModal,
-                  refunds_description: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's category</label>
-            <CreatableSelect
-              placeholder="you can pick or write an option"
-              options={Category}
-              onCreateOption={handelCreatOption}
-              onChange={(e) => {
-                setEditRefundsModal({
-                  ...EditRefundsModal,
-                  refunds_category: e?.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's price</label>
-            <input
-              type="number"
-              className="form_input"
-              defaultValue={EditRefundsModal?.refunds_price || ""}
-              onChange={(e) => {
-                setEditRefundsModal({
-                  ...EditRefundsModal,
-                  refunds_price: e.target.value,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's branche</label>
-            <Select
-              placeholder="pick Refund's branch"
-              options={BranchesOptions}
-              onChange={(e) => {
-                setEditRefundsModal({
-                  ...EditRefundsModal,
-                  branch_id: e,
-                });
-              }}
-            />
-          </div>
-          <div className="form_field">
-            <label className="form_label">Refund's date</label>
-            <input
-              type="date"
-              className="form_input"
-              defaultValue={EditRefundsModal?.refunds_date || ""}
-              onChange={(e) => {
-                setEditRefundsModal({
-                  ...EditRefundsModal,
-                  refunds_date: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
-      </Modal>
-
-      <Modal
-        title={`Delete Refund: (${DeleteRefundModal?.refunds_title || ""})`}
-        open={DeleteRefundModal}
-        footer={
+        {selectedRefund && (
           <>
-            <Button
-              style={{ margin: "0px 10px " }}
-              onClick={() => handelDeleteRefund(DeleteRefundModal?.id)}
-            >
-              Delete
-            </Button>
-            <Button onClick={() => setDeleteRefundModal(null)}>Cancel</Button>
+            <div className="form_field">
+              <label className="form_label">Refund's title</label>
+              <input
+                type="text"
+                className="form_input"
+                value={selectedRefund.refunds_title || ""}
+                onChange={(e) => {
+                  setSelectedRefund({
+                    ...selectedRefund,
+                    refunds_title: e.target.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">Refund's description</label>
+              <input
+                type="text"
+                className="form_input"
+                value={selectedRefund.refunds_description || ""}
+                onChange={(e) => {
+                  setSelectedRefund({
+                    ...selectedRefund,
+                    refunds_description: e.target.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">Refund's category</label>
+              <CreatableSelect
+                placeholder="you can pick or write an option"
+                options={Category}
+                onCreateOption={handelCreatOption}
+                value={getCategoryOption(selectedRefund.refunds_category)}
+                onChange={(e) => {
+                  setSelectedRefund({
+                    ...selectedRefund,
+                    refunds_category: e?.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">Refund's price</label>
+              <input
+                type="number"
+                className="form_input"
+                value={selectedRefund.refunds_price || ""}
+                onChange={(e) => {
+                  setSelectedRefund({
+                    ...selectedRefund,
+                    refunds_price: e.target.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">Refund's branch</label>
+              <Select
+                showSearch={true}
+                filterOption={(input, option) =>
+                  (option?.label ?? "")
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                placeholder="pick Refund's branch"
+                options={BranchesOptions}
+                value={selectedRefund.branch_id}
+                onChange={(e) => {
+                  setSelectedRefund({
+                    ...selectedRefund,
+                    branch_id: e,
+                  });
+                }}
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div className="form_field">
+              <label className="form_label">Refund's date</label>
+              <input
+                type="date"
+                className="form_input"
+                value={selectedRefund.refunds_date || ""}
+                onChange={(e) => {
+                  setSelectedRefund({
+                    ...selectedRefund,
+                    refunds_date: e.target.value,
+                  });
+                }}
+              />
+            </div>
           </>
-        }
-        onCancel={() => setDeleteRefundModal(null)}
+        )}
+      </Modal>
+
+      {/* Delete Modal */}
+      <Modal
+        title={`Delete Refund: (${selectedRefund?.refunds_title || ""})`}
+        open={isDeleteModalOpen}
+        onCancel={closeDeleteModal}
+        footer={[
+          <Button
+            key="delete"
+            danger
+            type="primary"
+            loading={deleteLoading}
+            onClick={handelDeleteRefund}
+          >
+            Delete
+          </Button>,
+          <Button
+            key="cancel"
+            onClick={closeDeleteModal}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>,
+        ]}
       >
-        <h3>Are you sure that you want to delete this Refund</h3>
+        <h3>Are you sure that you want to delete this Refund?</h3>
       </Modal>
     </>
   );

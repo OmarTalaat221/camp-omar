@@ -208,7 +208,7 @@ const LevelPlacmentAttachment = () => {
                   style={{ margin: "10px 0" }}
                   onClick={() => setAddExamAttachmentModal(true)}
                 >
-                  Edit placement Attachment
+                  Add placement Attachment
                 </Button>
               </div>
               <div className="card-body">

@@ -133,10 +133,20 @@ const LevelSections = () => {
               placement="bottom"
             >
               <Button
-                className="btn btn-primary"
-                style={{ display: "flex", flexDirection: "column", gap: "3px" }}
+                className="btn btn-primary "
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "3px",
+                  width: "fit-content",
+                  fontSize: "18px",
+                }}
               >
-                <FaEllipsisVertical />
+                <FaEllipsisVertical
+                  style={{
+                    fontSize: "18px",
+                  }}
+                />
               </Button>
             </Dropdown>
             <FaTrashCan
@@ -672,7 +682,7 @@ const LevelSections = () => {
       </Modal>
 
       <Modal
-        title="show Exam AttachmentModal"
+        title="show Exam Attachment Modal"
         open={ShowExamAttachmentModal}
         onCancel={() => setShowExamAttachmentModal(null)}
         footer={[
