@@ -120,11 +120,6 @@ const Refunds = () => {
       title: "description",
     },
     {
-      id: "refunds_category",
-      dataIndex: "refunds_category",
-      title: "category",
-    },
-    {
       id: "refunds_price",
       dataIndex: "refunds_price",
       title: "refunds price",
@@ -236,7 +231,7 @@ const Refunds = () => {
       refunds_title: NewRefundsData?.refunds_title,
       refunds_description: NewRefundsData?.refunds_description,
       refunds_price: NewRefundsData?.refunds_price,
-      refunds_category: NewRefundsData?.refunds_category,
+      // refunds_category: NewRefundsData?.refunds_category,
       refunds_date: NewRefundsData?.refunds_date,
       branch_id: NewRefundsData?.branch_id,
       admin_id: NewRefundsData?.admin_id,
@@ -270,7 +265,7 @@ const Refunds = () => {
       refunds_title: selectedRefund?.refunds_title,
       refunds_description: selectedRefund?.refunds_description,
       refunds_price: selectedRefund?.refunds_price,
-      refunds_category: selectedRefund?.refunds_category,
+      // refunds_category: selectedRefund?.refunds_category,
       refunds_date: selectedRefund?.refunds_date,
       refunds_id: selectedRefund?.id,
       branch_id: selectedRefund?.branch_id,
@@ -525,7 +520,7 @@ const Refunds = () => {
                 }}
               />
             </div>
-            <div className="form_field">
+            {/* <div className="form_field">
               <label className="form_label">Refund's category</label>
               <CreatableSelect
                 placeholder="you can pick or write an option"
@@ -539,7 +534,7 @@ const Refunds = () => {
                   });
                 }}
               />
-            </div>
+            </div> */}
             <div className="form_field">
               <label className="form_label">Refund's price</label>
               <input

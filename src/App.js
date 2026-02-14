@@ -270,18 +270,9 @@ const AppContent = () => {
                   !isAdminOrEmployee ? "page-body-no-sidebar" : ""
                 }`}
               >
-                <TransitionGroup>
-                  <CSSTransition
-                    key={location.key}
-                    timeout={300}
-                    classNames="page-transition"
-                    unmountOnExit
-                  >
-                    <div>
-                      <Outlet />
-                    </div>
-                  </CSSTransition>
-                </TransitionGroup>
+                <div>
+                  <Outlet />
+                </div>
               </div>
 
               {isAdminOrEmployee && (

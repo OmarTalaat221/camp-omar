@@ -3,14 +3,18 @@ import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import axios from "axios";
 import { BASE_URL } from "../../../Api/baseUrl";
-import CreatableSelect from "react-select/creatable";
 import { toast } from "react-toastify";
 import { FaEllipsisVertical } from "react-icons/fa6";
+import { AdminData } from "../../../routes/layouts-routes";
 
 const Permessions = () => {
-  // ✅ NEW: Form instances
+  // Form instances
   const [addForm] = Form.useForm();
   const [editForm] = Form.useForm();
+
+  // ✅ Watch type field for both forms
+  const addSelectedType = Form.useWatch("type", addForm);
+  const editSelectedType = Form.useWatch("type", editForm);
 
   const accessOptions = [
     { label: "Absence", access: "absence" },
@@ -54,43 +58,43 @@ const Permessions = () => {
     {
       id: "name",
       dataIndex: "name",
-      title: "name",
+      title: "Name",
     },
     {
       id: "email",
       dataIndex: "email",
-      title: "email",
+      title: "Email",
     },
     {
       id: "password",
       dataIndex: "password",
-      title: "password",
+      title: "Password",
     },
     {
       id: "type",
       dataIndex: "type",
-      title: "type",
+      title: "Type",
+      render: (type) => (
+        <span
+          style={{
+            padding: "4px 12px",
+            borderRadius: "4px",
+            background: type === "super_admin" ? "#722ed1" : "#1890ff",
+            color: "white",
+            fontSize: "12px",
+            textTransform: "capitalize",
+          }}
+        >
+          {type?.replace("_", " ") || "N/A"}
+        </span>
+      ),
     },
     {
       title: "Actions",
       render: (text, row) => {
         const items = [
           {
-            key: 5,
-            label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setDeleteAdminData(row);
-                  setDeleteAdminModal(true);
-                }}
-              >
-                Delete Admin
-              </button>
-            ),
-          },
-          {
-            key: 6,
+            key: "edit",
             label: (
               <button
                 className="btn btn-primary"
@@ -107,7 +111,7 @@ const Permessions = () => {
 
                   setEditAdminData(adminData);
 
-                  // ✅ NEW: Set form values
+                  // Set form values
                   editForm.setFieldsValue({
                     name: row.name,
                     email: row.email,
@@ -125,7 +129,7 @@ const Permessions = () => {
             ),
           },
           {
-            key: 7,
+            key: "group",
             label: (
               <button
                 className="btn btn-primary"
@@ -136,6 +140,20 @@ const Permessions = () => {
                 }}
               >
                 Add admin for group
+              </button>
+            ),
+          },
+          {
+            key: "delete",
+            label: (
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setDeleteAdminData(row);
+                  setDeleteAdminModal(true);
+                }}
+              >
+                Delete Admin
               </button>
             ),
           },
@@ -164,7 +182,7 @@ const Permessions = () => {
     axios
       .get(BASE_URL + "/admin/permissions/select_admins.php")
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setAdmins(res?.data?.message || []);
         }
       })
@@ -175,7 +193,7 @@ const Permessions = () => {
     axios
       .get(BASE_URL + "/admin/branches/select_branch.php")
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setAllBranches(res?.data?.message || []);
         }
       })
@@ -200,7 +218,7 @@ const Permessions = () => {
         dataSend
       )
       .then((res) => {
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setGroups(res?.data?.message || []);
         }
       })
@@ -216,36 +234,36 @@ const Permessions = () => {
 
   const [typeOptions, setTypeOptions] = useState([
     { value: "super_admin", label: "Super Admin" },
-    { value: "employee", label: "employee" },
-    { value: "instructor", label: "instructor" },
+    { value: "employee", label: "Employee" },
+    { value: "instructor", label: "Instructor" },
     { value: "superVisor", label: "Super Visor" },
-    { value: "Branch_manager", label: "Branch manager" },
-    { value: "General_manager", label: "General manager" },
+    // { value: "Branch_manager", label: "Branch Manager" },
+    // { value: "General_manager", label: "General Manager" },
   ]);
 
-  function handelCreatOption(inputValue) {
-    const newCategory = { value: inputValue.toLowerCase(), label: inputValue };
-    setTypeOptions((prevCategory) => [...prevCategory, newCategory]);
-  }
-
-  // ✅ NEW: Handle Add Admin with Form validation
+  // Handle Add Admin with Form validation
   function handleAddNewAdmin(values) {
     setSubmitting(true);
 
+    // ✅ If super_admin, set access to all or empty
+    const accessValue =
+      values.type === "super_admin" ? "" : values.access?.join("**") || "";
+
     const dataSend = {
+      admin_id: AdminData[0]?.admin_id,
       name: values.name,
       email: values.email,
       password: values.password,
       permissions: values.type,
       type: values.type,
       branch_id: values.branch_id,
-      access: values.access?.join("**"),
+      access: accessValue,
     };
 
     axios
       .post(BASE_URL + `/admin/permissions/add_admin.php`, dataSend)
       .then((res) => {
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
           handleCloseAddModal();
           handleGetAllAdmins();
@@ -276,7 +294,7 @@ const Permessions = () => {
     axios
       .post(BASE_URL + `/admin/permissions/add_group_for_Admin.php`, dataSend)
       .then((res) => {
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
           handleGetGroups(AddAdminForGroupData?.admin_id);
           setNewGroupId(null);
@@ -298,7 +316,7 @@ const Permessions = () => {
     axios
       .post(BASE_URL + `/admin/permissions/delete_admin.php`, dataSend)
       .then((res) => {
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
           setDeleteAdminModal(false);
           setDeleteAdminData(null);
@@ -313,9 +331,13 @@ const Permessions = () => {
       });
   }
 
-  // ✅ NEW: Handle Edit Admin with Form validation
+  // Handle Edit Admin with Form validation
   function handleEditAdmin(values) {
     setSubmitting(true);
+
+    // ✅ If super_admin, set access to all or empty
+    const accessValue =
+      values.type === "super_admin" ? "" : values.access?.join("**") || "";
 
     const dataSend = {
       name: values.name,
@@ -325,13 +347,13 @@ const Permessions = () => {
       type: values.type,
       admin_id: EditAdminData?.admin_id,
       branch_id: values.branch_id,
-      access: values.access?.join("**"),
+      access: accessValue,
     };
 
     axios
       .post(BASE_URL + `/admin/permissions/edit_admin.php`, dataSend)
       .then((res) => {
-        if (res.data.status == "success") {
+        if (res.data.status === "success") {
           toast.success(res.data.message);
           handleCloseEditModal();
           handleGetAllAdmins();
@@ -348,7 +370,7 @@ const Permessions = () => {
       });
   }
 
-  // ✅ NEW: Close modal and reset form
+  // Close modal and reset form
   const handleCloseAddModal = () => {
     setAddAdminModal(false);
     addForm.resetFields();
@@ -371,6 +393,19 @@ const Permessions = () => {
     setDeleteAdminData(null);
   };
 
+  // ✅ Handle type change - clear access when super_admin is selected
+  const handleAddTypeChange = (value) => {
+    if (value === "super_admin") {
+      addForm.setFieldValue("access", undefined);
+    }
+  };
+
+  const handleEditTypeChange = (value) => {
+    if (value === "super_admin") {
+      editForm.setFieldValue("access", undefined);
+    }
+  };
+
   return (
     <>
       <Breadcrumbs parent="Admin" title="Admin List" />
@@ -378,15 +413,16 @@ const Permessions = () => {
         <div className="row">
           <div className="col-sm-12">
             <div className="card">
-              <div className="card-header">
+              <div className="card-header d-flex justify-content-between align-items-center">
                 <h5>Admin List</h5>
-                <Button
-                  color="primary btn-pill"
-                  style={{ margin: "10px 0" }}
+                <button
+                  className="btn btn-primary"
+                  // type="primary"
+                  // style={{ margin: "10px 0" }}
                   onClick={() => setAddAdminModal(true)}
                 >
                   Add Admin
-                </Button>
+                </button>
               </div>
               <div className="card-body">
                 <Table
@@ -403,7 +439,7 @@ const Permessions = () => {
         </div>
       </div>
 
-      {/* ✅ NEW: Add Admin Modal with Ant Design Form */}
+      {/* ✅ Add Admin Modal */}
       <Modal
         title="Add new Admin"
         open={AddAdminModal}
@@ -461,6 +497,7 @@ const Permessions = () => {
                   .toLowerCase()
                   .includes(input.toLowerCase())
               }
+              onChange={handleAddTypeChange}
             />
           </Form.Item>
 
@@ -484,22 +521,60 @@ const Permessions = () => {
             />
           </Form.Item>
 
-          <Form.Item
-            label="Access"
-            name="access"
-            rules={[
-              { required: true, message: "Please select at least one access" },
-            ]}
-          >
-            <Select
-              mode="multiple"
-              placeholder="Select Access"
-              options={accessOptions.map((access) => ({
-                value: access.access,
-                label: access.label,
-              }))}
-            />
-          </Form.Item>
+          {/* ✅ Hide Access when super_admin is selected */}
+          {addSelectedType !== "super_admin" && (
+            <Form.Item
+              label={
+                <span>
+                  Access
+                  {addSelectedType === "instructor" && (
+                    <span
+                      style={{
+                        color: "#52c41a",
+                        fontSize: "12px",
+                        marginLeft: "8px",
+                      }}
+                    >
+                      (Absence, Groups, Students recommended)
+                    </span>
+                  )}
+                </span>
+              }
+              name="access"
+              rules={[
+                {
+                  required: addSelectedType !== "super_admin",
+                  message: "Please select at least one access",
+                },
+              ]}
+            >
+              <Select
+                mode="multiple"
+                placeholder="Select Access"
+                options={accessOptions.map((access) => ({
+                  value: access.access,
+                  label: access.label,
+                }))}
+              />
+            </Form.Item>
+          )}
+
+          {/* ✅ Show info message when super_admin is selected */}
+          {addSelectedType === "super_admin" && (
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "#f6ffed",
+                border: "1px solid #b7eb8f",
+                borderRadius: "8px",
+                marginBottom: "16px",
+              }}
+            >
+              <span style={{ color: "#52c41a", fontWeight: 500 }}>
+                ✓ Super Admin has full access to all features
+              </span>
+            </div>
+          )}
 
           <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
             <Button
@@ -516,7 +591,7 @@ const Permessions = () => {
         </Form>
       </Modal>
 
-      {/* ✅ NEW: Edit Admin Modal with Ant Design Form */}
+      {/* ✅ Edit Admin Modal */}
       <Modal
         title="Edit Admin"
         open={EditAdminModal}
@@ -574,6 +649,7 @@ const Permessions = () => {
                   .toLowerCase()
                   .includes(input.toLowerCase())
               }
+              onChange={handleEditTypeChange}
             />
           </Form.Item>
 
@@ -597,51 +673,60 @@ const Permessions = () => {
             />
           </Form.Item>
 
-          <Form.Item
-            noStyle
-            shouldUpdate={(prevValues, currentValues) =>
-              prevValues.type !== currentValues.type
-            }
-          >
-            {({ getFieldValue }) =>
-              getFieldValue("type") !== "super_admin" && (
-                <Form.Item
-                  label={
-                    <span>
-                      Access
-                      {getFieldValue("type") === "instructor" && (
-                        <span
-                          style={{
-                            color: "#52c41a",
-                            fontSize: "12px",
-                            marginLeft: "5px",
-                          }}
-                        >
-                          (Absence, Groups, Students recommended)
-                        </span>
-                      )}
+          {/* ✅ Hide Access when super_admin is selected */}
+          {editSelectedType !== "super_admin" && (
+            <Form.Item
+              label={
+                <span>
+                  Access
+                  {editSelectedType === "instructor" && (
+                    <span
+                      style={{
+                        color: "#52c41a",
+                        fontSize: "12px",
+                        marginLeft: "8px",
+                      }}
+                    >
+                      (Absence, Groups, Students recommended)
                     </span>
-                  }
-                  name="access"
-                  rules={[
-                    {
-                      required: true,
-                      message: "Please select at least one access",
-                    },
-                  ]}
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select Access"
-                    options={accessOptions.map((access) => ({
-                      value: access.access,
-                      label: access.label,
-                    }))}
-                  />
-                </Form.Item>
-              )
-            }
-          </Form.Item>
+                  )}
+                </span>
+              }
+              name="access"
+              rules={[
+                {
+                  required: editSelectedType !== "super_admin",
+                  message: "Please select at least one access",
+                },
+              ]}
+            >
+              <Select
+                mode="multiple"
+                placeholder="Select Access"
+                options={accessOptions.map((access) => ({
+                  value: access.access,
+                  label: access.label,
+                }))}
+              />
+            </Form.Item>
+          )}
+
+          {/* ✅ Show info message when super_admin is selected */}
+          {editSelectedType === "super_admin" && (
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "#f6ffed",
+                border: "1px solid #b7eb8f",
+                borderRadius: "8px",
+                marginBottom: "16px",
+              }}
+            >
+              <span style={{ color: "#52c41a", fontWeight: 500 }}>
+                ✓ Super Admin has full access to all features
+              </span>
+            </div>
+          )}
 
           <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
             <Button
@@ -652,7 +737,7 @@ const Permessions = () => {
               Cancel
             </Button>
             <Button type="primary" htmlType="submit" loading={submitting}>
-              Edit
+              Save Changes
             </Button>
           </Form.Item>
         </Form>
@@ -664,6 +749,9 @@ const Permessions = () => {
         open={AddAdminForGroupModal}
         onCancel={handleCloseGroupModal}
         footer={[
+          <Button key="cancel" onClick={handleCloseGroupModal}>
+            Cancel
+          </Button>,
           <Button
             key="add"
             type="primary"
@@ -671,17 +759,23 @@ const Permessions = () => {
           >
             Add
           </Button>,
-          <Button key="cancel" onClick={handleCloseGroupModal}>
-            Cancel
-          </Button>,
         ]}
       >
-        <div className="form_field">
-          <label className="form_label">Select Group</label>
+        <div style={{ marginBottom: "16px" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              fontWeight: 500,
+            }}
+          >
+            Select Group
+          </label>
           <Select
             showSearch
             style={{ width: "100%" }}
             value={NewGroupId}
+            placeholder="Select a group"
             filterOption={(input, option) =>
               (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
             }
@@ -699,6 +793,9 @@ const Permessions = () => {
         open={DeleteAdminModal}
         onCancel={handleCloseDeleteModal}
         footer={[
+          <Button key="cancel" onClick={handleCloseDeleteModal}>
+            Cancel
+          </Button>,
           <Button
             key="delete"
             type="primary"
@@ -707,12 +804,22 @@ const Permessions = () => {
           >
             Delete
           </Button>,
-          <Button key="cancel" onClick={handleCloseDeleteModal}>
-            Cancel
-          </Button>,
         ]}
       >
-        <h3>Are you sure that you want to Delete this admin?</h3>
+        <div
+          style={{
+            padding: "20px",
+            textAlign: "center",
+          }}
+        >
+          <h3 style={{ marginBottom: "8px" }}>
+            Are you sure you want to delete this admin?
+          </h3>
+          <p style={{ color: "#666" }}>
+            This action cannot be undone. Admin "{DeleteAdminData?.name}" will
+            be permanently removed.
+          </p>
+        </div>
       </Modal>
     </>
   );

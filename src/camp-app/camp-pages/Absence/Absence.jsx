@@ -16,13 +16,12 @@ const Absence = () => {
   const [exporting, setExporting] = useState(false);
   const [exportingTable, setExportingTable] = useState(false);
 
-  const AdminData = JSON.parse(localStorage.getItem("AdminData"))[0];
+  const AdminData = JSON.parse(localStorage.getItem("AdminData"))?.[0];
 
   function handleGetAbsence() {
     axios
       .get(BASE_URL + "/admin/groups/select_group_absence.php")
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           setAbsence(res?.data?.message);
         }

@@ -320,12 +320,12 @@ export default function Questions() {
         const items = [
           {
             key: "edit",
-            label: (
-              <span onClick={() => openEditModal(row)}>Edit Question</span>
-            ),
+            onClick: () => openEditModal(row),
+            label: "Edit Question",
           },
           {
             key: "delete",
+            onClick: () => openDeleteModal(row),
             label: (
               <span
                 onClick={() => openDeleteModal(row)}
@@ -337,11 +337,8 @@ export default function Questions() {
           },
           {
             key: "attachments",
-            label: (
-              <span onClick={() => openAttachmentsModal(row)}>
-                View Attachments
-              </span>
-            ),
+            onClick: () => openAttachmentsModal(row),
+            label: "View Attachments",
           },
         ];
 

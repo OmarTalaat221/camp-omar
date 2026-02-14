@@ -126,7 +126,7 @@ const TracksList = () => {
               <div className="card-header">
                 <h5>Tracks List</h5>
               </div>
-              <div className="card-body">
+              {/* <div className="card-body">
                 <button
                   className="btn btn-primary mb-3"
                   onClick={() => setAddTrackModal(true)}
@@ -134,7 +134,7 @@ const TracksList = () => {
                   Add Track
                 </button>
                 <Table columns={columns} dataSource={Tracks} />
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

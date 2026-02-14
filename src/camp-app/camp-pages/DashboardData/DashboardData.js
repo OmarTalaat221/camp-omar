@@ -14,18 +14,49 @@ import * as XLSX from "xlsx";
 import { BASE_URL } from "../../../Api/baseUrl";
 import axios from "axios";
 import { BsSearch } from "react-icons/bs";
+import { Link, useNavigate } from "react-router-dom";
 
 export const DashboardData = () => {
   const [BranchsData, setBranchesData] = useState([]);
-  const [DashboardData, setDashboardData] = useState([]);
+  const [DashboardData, setDashboardData] = useState({
+    totalStudents: 0,
+    totalGroups: 0,
+    activeGroups: 0,
+    finishedGroups: 0,
+    totalBranches: 0,
+  });
+
+  const navigate = useNavigate();
 
   function handleGetStatictis() {
     axios
-      .get(BASE_URL + "/admin/dashboard/stats.php")
+      .get(BASE_URL + "/admin/dashboard/new_counted_data.php")
       .then((res) => {
         console.log(res);
-        setDashboardData(res?.data);
-        setBranchesData(res?.data?.branches);
+        if (res?.data?.status === "success" && res?.data?.message) {
+          const branches = res.data.message;
+          setBranchesData(branches);
+
+          // Calculate totals from branches data
+          const totals = branches.reduce(
+            (acc, branch) => {
+              acc.totalStudents += branch.total_students || 0;
+              acc.totalGroups += branch.total_groups || 0;
+              acc.activeGroups += branch.active_groups || 0;
+              acc.finishedGroups += branch.finished_groups || 0;
+              return acc;
+            },
+            {
+              totalStudents: 0,
+              totalGroups: 0,
+              activeGroups: 0,
+              finishedGroups: 0,
+              totalBranches: branches.length,
+            }
+          );
+
+          setDashboardData(totals);
+        }
       })
       .catch((e) => console.log(e));
   }
@@ -113,142 +144,113 @@ export const DashboardData = () => {
 
   const columns = [
     {
-      id: "branch_name",
+      key: "branch_name",
       dataIndex: "branch_name",
-      title: "branches",
+      title: "Branch Name",
       ...getColumnSearchProps("branch_name"),
     },
     {
-      id: "new_students",
-      dataIndex: "new_students",
-      title: "New Members",
+      key: "location",
+      dataIndex: "location",
+      title: "Location",
+      ...getColumnSearchProps("location"),
     },
     {
-      id: "total_students",
+      key: "phone",
+      dataIndex: "phone",
+      title: "Phone",
+    },
+    {
+      key: "total_students",
       dataIndex: "total_students",
-      title: "total students",
+      title: "Total Students",
+      sorter: (a, b) => a.total_students - b.total_students,
+      render: (text) => (
+        <span style={{ color: "#4680ff", fontWeight: "bold" }}>{text}</span>
+      ),
     },
     {
-      id: "total",
-      dataIndex: "total",
-      title: "income",
-      render: (text, row) => {
-        return <p style={{ color: "green" }}>{row?.total}</p>;
-      },
-    },
-    // {
-    //   id: "revenue",
-    //   dataIndex: "revenue",
-    //   title: "Revenue",
-    //   render: (text, row) => {
-    //     return <p style={{ color: "green" }}>{row?.revenue}</p>;
-    //   },
-    // },
-    {
-      id: "refunds",
-      dataIndex: "refunds",
-      title: "Refunds",
-      render: (text, row) => {
-        return <p style={{ color: "red" }}>{row?.refunds}</p>;
-      },
+      key: "total_groups",
+      dataIndex: "total_groups",
+      title: "Total Groups",
+      sorter: (a, b) => a.total_groups - b.total_groups,
     },
     {
-      id: "expenses",
-      dataIndex: "expenses",
-      title: "Expenses",
-      render: (text, row) => {
-        return <p style={{ color: "red" }}>{row?.expenses}</p>;
-      },
+      key: "active_groups",
+      dataIndex: "active_groups",
+      title: "Active Groups",
+      render: (text) => (
+        <span style={{ color: "green", fontWeight: "bold" }}>{text}</span>
+      ),
     },
-    // {
-    //   id: "profitLoss",
-    //   dataIndex: "profitLoss",
-    //   title: "Net income",
-    //   render: (text, row) => {
-    //     return <p style={{ color: "blue" }}>{row?.net_income}</p>;
-    //   },
-    // },
     {
-      id: "total",
-      dataIndex: "total",
-      title: "Total",
-      render: (text, row) => {
-        return (
-          <p style={{ color: "blue" }}>
-            {row.total - row?.expenses - row?.refunds}
-          </p>
-        );
-      },
+      key: "finished_groups",
+      dataIndex: "finished_groups",
+      title: "Finished Groups",
+      render: (text) => <span style={{ color: "orange" }}>{text}</span>,
     },
   ];
 
   const dashboardData = [
     {
+      to: "/branches",
       icon: (
-        <IoMdPhonePortrait
-          style={{ width: "40px", height: "40px", color: "#26dad2" }}
-        />
+        <FaUsers style={{ width: "40px", height: "40px", color: "#26dad2" }} />
       ),
-      value: DashboardData?.leeds || 0,
-      label: "New Leads",
+      value: DashboardData?.totalBranches || 0,
+      label: "Total Branches",
     },
     {
+      to: "/students/list",
       icon: (
         <FaUsers style={{ width: "40px", height: "40px", color: "#fc6180" }} />
       ),
-      value: DashboardData?.clients || 0,
-      label: "Clients",
+      value: DashboardData?.totalStudents || 0,
+      label: "Total Students",
     },
     {
+      to: "/groups",
       icon: (
         <FaMoneyBill
           style={{ width: "40px", height: "40px", color: "#4680ff" }}
         />
       ),
-      value: DashboardData?.income || 0,
-      label: "Income",
+      value: DashboardData?.totalGroups || 0,
+      label: "Total Groups",
     },
     {
+      to: "/groups",
       icon: (
         <FaDollarSign
           style={{ width: "40px", height: "40px", color: "#62d1f3" }}
         />
       ),
-      value: DashboardData?.expenses || 0,
-      label: "Expenses",
+      value: DashboardData?.activeGroups || 0,
+      label: "Active Groups",
     },
     {
+      to: "/groups",
       icon: (
         <BsCreditCard
           style={{ width: "40px", height: "40px", color: "#fc6180" }}
         />
       ),
-      value: DashboardData?.refunds || 0,
-      label: "Refunds",
-    },
-    {
-      icon: (
-        <FaChartColumn
-          style={{ width: "40px", height: "40px", color: "#ffb64d" }}
-        />
-      ),
-      value: DashboardData?.profitLoss || 0,
-      label: "Profit / Loss",
+      value: DashboardData?.finishedGroups || 0,
+      label: "Finished Groups",
     },
   ];
 
   const handleExport = () => {
     const worksheet = XLSX.utils.json_to_sheet(
       filteredData && filteredData.length > 0 ? filteredData : BranchsData
-    ); // Convert JSON to Excel sheet
-    const workbook = XLSX.utils.book_new(); // Create a new workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Students"); // Append the sheet
-    XLSX.writeFile(workbook, "students_data.xlsx"); // Export the workbook as a file
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Branches");
+    XLSX.writeFile(workbook, "branches_data.xlsx");
   };
 
   return (
     <>
-      {/* <Breadcrumbs parent="Branches" title="Rounds List" /> */}
       <div className="container-fluid dashboard_container">
         <div className="row">
           <div className="col-sm-12">
@@ -257,27 +259,27 @@ export const DashboardData = () => {
                 className="card-header"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
                   gap: "15px",
                   padding: "20px",
                 }}
               >
-                {dashboardData.map((data) => {
+                {dashboardData.map((data, index) => {
                   return (
-                    <>
-                      <div className="data_continer">
-                        <span>{data?.icon}</span>
-                        <span>
-                          <h4>
-                            <CountUp
-                              end={data?.value}
-                              style={{ margin: "auto" }}
-                            />
-                          </h4>
-                          <p>{data?.label}</p>
-                        </span>
-                      </div>
-                    </>
+                    <Link to={data?.to} className="data_continer" key={index}>
+                      <span>{data?.icon}</span>
+                      <span>
+                        <h4>
+                          <CountUp
+                            end={data?.value}
+                            style={{ margin: "auto" }}
+                            decimals={data.label.includes("%") ? 1 : 0}
+                            suffix={data.label.includes("%") ? "%" : ""}
+                          />
+                        </h4>
+                        <p>{data?.label}</p>
+                      </span>
+                    </Link>
                   );
                 })}
               </div>
@@ -306,7 +308,7 @@ export const DashboardData = () => {
                   Export to Excel
                 </button>
                 <Table
-                  rowKey={(record) => record.student_id}
+                  rowKey={(record) => record.branch_id}
                   onChange={handleTableChange}
                   scroll={{
                     x: "max-content",
