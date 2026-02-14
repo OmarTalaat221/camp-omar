@@ -25,19 +25,76 @@ const LevelSections = () => {
     section_name: null,
   });
 
+  // فصل states الـ Modals عن الـ Data
   const [AddSectionModal, setAddSectionModal] = useState(false);
-  const [DeleteModal, setDeleteModal] = useState(false);
 
+  // Edit Modal - فصل الـ state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [EditingSection, setEditingSection] = useState(null);
+
+  // Delete Modal - فصل الـ state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [DeletingSection, setDeletingSection] = useState(null);
+
   const [Loading, setLoading] = useState(false);
-  const [AddExamAttachmentModal, setAddExamAttachmentModal] = useState(null);
-  const [ShowExamAttachmentModal, setShowExamAttachmentModal] = useState(null);
+
+  // Add Exam Attachment Modal - فصل الـ state
+  const [isAddExamAttachmentModalOpen, setIsAddExamAttachmentModalOpen] =
+    useState(false);
+  const [ExamAttachmentSection, setExamAttachmentSection] = useState(null);
+
+  // Show Exam Attachment Modal - فصل الـ state
+  const [isShowExamAttachmentModalOpen, setIsShowExamAttachmentModalOpen] =
+    useState(false);
+  const [ShowExamAttachmentSection, setShowExamAttachmentSection] =
+    useState(null);
 
   const [AttchmentPdf, setAttchmentPdf] = useState(null);
   const [voice, setVoice] = useState(null);
   const [rowData, setRowData] = useState(false);
   const [showHideModal, setShowHideModal] = useState(false);
   const [showHideLoading, setShowHideLoading] = useState(false);
+
+  // Helper functions لفتح الـ Modals
+  const openEditModal = (row) => {
+    setEditingSection(row);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingSection(null);
+  };
+
+  const openDeleteModal = (row) => {
+    setDeletingSection(row);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setDeletingSection(null);
+  };
+
+  const openAddExamAttachmentModal = (row) => {
+    setExamAttachmentSection(row);
+    setIsAddExamAttachmentModalOpen(true);
+  };
+
+  const closeAddExamAttachmentModal = () => {
+    setIsAddExamAttachmentModalOpen(false);
+    setExamAttachmentSection(null);
+  };
+
+  const openShowExamAttachmentModal = (row) => {
+    setShowExamAttachmentSection(row);
+    setIsShowExamAttachmentModalOpen(true);
+  };
+
+  const closeShowExamAttachmentModal = () => {
+    setIsShowExamAttachmentModalOpen(false);
+    setShowExamAttachmentSection(null);
+  };
 
   const columns = [
     {
@@ -61,11 +118,6 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/videos`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/videos`
-                //   )
-                // }
               >
                 Videos
               </Link>
@@ -78,11 +130,6 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/Examquestions`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/Examquestions`
-                //   )
-                // }
               >
                 Exam
               </Link>
@@ -95,11 +142,6 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/pdfs`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/pdfs`
-                //   )
-                // }
               >
                 Files
               </Link>
@@ -112,11 +154,6 @@ const LevelSections = () => {
                 to={`${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/voices`}
                 className="btn btn-primary text-white"
                 style={{ width: "100%" }}
-                // onClick={() =>
-                //   navigate(
-                //     `${process.env.PUBLIC_URL}/levels/${levelId}/sections/${row?.section_id}/voices`
-                //   )
-                // }
               >
                 Voices
               </Link>
@@ -125,7 +162,7 @@ const LevelSections = () => {
         ];
         return (
           <div className="d-flex gap-2 align-items-center">
-            <Button onClick={() => setEditingSection(row)}>Edit</Button>
+            <Button onClick={() => openEditModal(row)}>Edit</Button>
             <Dropdown
               menu={{
                 items,
@@ -152,7 +189,7 @@ const LevelSections = () => {
             <FaTrashCan
               className="del_icon"
               style={{ cursor: "pointer" }}
-              onClick={() => setDeleteModal(row)}
+              onClick={() => openDeleteModal(row)}
             />
           </div>
         );
@@ -192,12 +229,12 @@ const LevelSections = () => {
                 }}
               />
             )}
-            <Button onClick={() => setAddExamAttachmentModal(row)}>
+            <Button onClick={() => openAddExamAttachmentModal(row)}>
               Add Exam Attachment
             </Button>
             <Button
               style={{ margin: "0px 10px" }}
-              onClick={() => setShowExamAttachmentModal(row)}
+              onClick={() => openShowExamAttachmentModal(row)}
             >
               Show Exam Attachment
             </Button>
@@ -235,15 +272,12 @@ const LevelSections = () => {
       level_id: levelId,
     };
 
-    console.log(dataSend);
-
     axios
       .post(
         BASE_URL + "/admin/content/add_section.php",
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res.data.message);
           setAddSectionModal(false);
@@ -261,18 +295,15 @@ const LevelSections = () => {
       section_id: EditingSection.section_id,
     };
 
-    console.log(dataSend);
-
     axios
       .post(
         BASE_URL + "/admin/content/edit_section.php",
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res.data.message);
-          setEditingSection(null);
+          closeEditModal();
           handleSelectSections();
         } else {
           toast.error(res.data.message);
@@ -291,10 +322,9 @@ const LevelSections = () => {
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
         if (res?.data?.status == "success") {
           toast.success(res.data.message);
-          setDeleteModal(false);
+          closeDeleteModal();
           handleSelectSections();
         } else {
           toast.error(res.data.message);
@@ -304,7 +334,6 @@ const LevelSections = () => {
   };
 
   const handleAddExamAttachment = async (section_id) => {
-    console.log(AttachmentType);
     if (AttachmentType == "pdf") {
       setLoading(true);
       const formData = new FormData();
@@ -322,18 +351,15 @@ const LevelSections = () => {
               section_id: section_id,
             };
 
-            console.log(dataSend);
-
             axios
               .post(
                 BASE_URL + "/admin/content/add_edit_section_exam_attach.php",
                 JSON.stringify(dataSend)
               )
               .then((res) => {
-                console.log(res);
                 if (res?.data?.status == "success") {
                   toast.success(res.data.message);
-                  setAddExamAttachmentModal(null);
+                  closeAddExamAttachmentModal();
                   handleSelectSections();
                 } else {
                   toast.error(res.data.message);
@@ -357,9 +383,7 @@ const LevelSections = () => {
           "https://campforenglish.net/camp_for_english/admin/upload_voice.php",
           formData
         )
-
         .then((resvoice) => {
-          console.log(resvoice);
           if (resvoice?.data?.status == "success") {
             const dataSend = {
               exam_attach_type: AttachmentType,
@@ -367,18 +391,15 @@ const LevelSections = () => {
               section_id: section_id,
             };
 
-            console.log(dataSend);
-
             axios
               .post(
                 BASE_URL + "/admin/content/add_edit_section_exam_attach.php",
                 JSON.stringify(dataSend)
               )
               .then((res) => {
-                console.log(res);
                 if (res?.data?.status == "success") {
                   toast.success(res.data.message);
-                  setAddExamAttachmentModal(null);
+                  closeAddExamAttachmentModal();
                   handleSelectSections();
                 } else {
                   toast.error(res.data.message);
@@ -399,14 +420,12 @@ const LevelSections = () => {
   const [audioUrl, setAudioUrl] = useState(null);
 
   const addAudioElement = (blob) => {
-    console.log(blob);
     const url = URL.createObjectURL(blob);
     const audio = document.createElement("audio");
     setVoice(url);
     audio.src = url;
     audio.controls = true;
     document.body.appendChild(audio);
-    console.log(url);
     const file = new File([blob], "recording.mp3", { type: "audio/mp3" });
     setAudioUrl(file);
   };
@@ -469,6 +488,7 @@ const LevelSections = () => {
         </div>
       </div>
 
+      {/* Add Section Modal */}
       <Modal
         title="Add section"
         open={AddSectionModal}
@@ -485,25 +505,25 @@ const LevelSections = () => {
         }
         onCancel={() => setAddSectionModal(false)}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">section name</label>
-            <input
-              type="text"
-              className="form_input"
-              onChange={(e) => {
-                setNewSectionName({
-                  ...newSectionName,
-                  section_name: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
+        <div className="form_field">
+          <label className="form_label">section name</label>
+          <input
+            type="text"
+            className="form_input"
+            onChange={(e) => {
+              setNewSectionName({
+                ...newSectionName,
+                section_name: e.target.value,
+              });
+            }}
+          />
+        </div>
       </Modal>
+
+      {/* Edit Section Modal - منفصل */}
       <Modal
         title="Edit section"
-        open={EditingSection}
+        open={isEditModalOpen}
         footer={
           <>
             <Button
@@ -512,62 +532,62 @@ const LevelSections = () => {
             >
               Edit
             </Button>
-            <Button onClick={() => setEditingSection(null)}>Cancel</Button>
+            <Button onClick={closeEditModal}>Cancel</Button>
           </>
         }
-        onCancel={() => setEditingSection(null)}
+        onCancel={closeEditModal}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">section name</label>
-            <input
-              type="text"
-              className="form_input"
-              value={EditingSection?.section_name || " "}
-              onChange={(e) => {
-                setEditingSection({
-                  ...EditingSection,
-                  section_name: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
+        <div className="form_field">
+          <label className="form_label">section name</label>
+          <input
+            type="text"
+            className="form_input"
+            value={EditingSection?.section_name || ""}
+            onChange={(e) => {
+              setEditingSection({
+                ...EditingSection,
+                section_name: e.target.value,
+              });
+            }}
+          />
+        </div>
       </Modal>
 
+      {/* Delete Section Modal - منفصل */}
       <Modal
         title="Delete section"
-        open={DeleteModal}
-        onCancel={() => setDeleteModal(null)}
+        open={isDeleteModalOpen}
+        onCancel={closeDeleteModal}
         footer={[
           <Button
             type="primary"
             key="submit"
-            onClick={() => handleDeleteSection(DeleteModal.section_id)}
+            onClick={() => handleDeleteSection(DeletingSection?.section_id)}
           >
             Delete
           </Button>,
-          <Button key="cancel" onClick={() => setDeleteModal(null)}>
+          <Button key="cancel" onClick={closeDeleteModal}>
             Cancel
           </Button>,
         ]}
       >
         <h3>Are you sure you want to delete this section</h3>
         <p>
-          <strong>section name:</strong> {DeleteModal?.section_name}
+          <strong>section name:</strong> {DeletingSection?.section_name}
         </p>
       </Modal>
 
+      {/* Add Exam Attachment Modal - منفصل */}
       <Modal
         title="Add Exam Attachment"
-        open={AddExamAttachmentModal}
-        onCancel={() => setAddExamAttachmentModal(null)}
+        open={isAddExamAttachmentModalOpen}
+        onCancel={closeAddExamAttachmentModal}
         footer={[
           <Button
             type="primary"
             key="submit"
             onClick={() =>
-              handleAddExamAttachment(AddExamAttachmentModal?.section_id)
+              handleAddExamAttachment(ExamAttachmentSection?.section_id)
             }
           >
             {Loading ? (
@@ -576,7 +596,7 @@ const LevelSections = () => {
               "Add Attachment"
             )}
           </Button>,
-          <Button key="cancel" onClick={() => setAddExamAttachmentModal(null)}>
+          <Button key="cancel" onClick={closeAddExamAttachmentModal}>
             Cancel
           </Button>,
         ]}
@@ -628,18 +648,16 @@ const LevelSections = () => {
           </div>
         </div>
         {AttachmentType == "pdf" ? (
-          <>
-            <div className="form_field">
-              <label className="form_label">pdf</label>
-              <input
-                type="file"
-                className="form_input"
-                onChange={(e) => {
-                  setAttchmentPdf(e.target.files[0]);
-                }}
-              />
-            </div>
-          </>
+          <div className="form_field">
+            <label className="form_label">pdf</label>
+            <input
+              type="file"
+              className="form_input"
+              onChange={(e) => {
+                setAttchmentPdf(e.target.files[0]);
+              }}
+            />
+          </div>
         ) : (
           <>
             <AudioRecorder
@@ -649,7 +667,6 @@ const LevelSections = () => {
                 noiseSuppression: true,
                 echoCancellation: true,
               }}
-              // downloadOnSavePress={true}
               downloadFileExtension="mp3"
             />
             <div className="form_field">
@@ -681,54 +698,52 @@ const LevelSections = () => {
         )}
       </Modal>
 
+      {/* Show Exam Attachment Modal - منفصل */}
       <Modal
-        title="show Exam Attachment Modal"
-        open={ShowExamAttachmentModal}
-        onCancel={() => setShowExamAttachmentModal(null)}
+        title="Show Exam Attachment Modal"
+        open={isShowExamAttachmentModalOpen}
+        onCancel={closeShowExamAttachmentModal}
         footer={[
-          <Button key="cancel" onClick={() => setShowExamAttachmentModal(null)}>
+          <Button key="cancel" onClick={closeShowExamAttachmentModal}>
             Cancel
           </Button>,
         ]}
       >
-        {ShowExamAttachmentModal?.exam_attach_type == "pdf" ? (
-          <>
-            <div className="form_field">
-              <label className="form_label">pdf</label>
-              <FaBook
-                onClick={() =>
-                  window.open(ShowExamAttachmentModal?.exam_attach_link)
-                }
-                style={{
-                  width: "30px",
-                  height: "30px",
-                  color: "orange",
-                  cursor: "pointer",
-                }}
-              />
-            </div>
-          </>
-        ) : (
-          <>
-            <div
+        {ShowExamAttachmentSection?.exam_attach_type == "pdf" ? (
+          <div className="form_field">
+            <label className="form_label">pdf</label>
+            <FaBook
+              onClick={() =>
+                window.open(ShowExamAttachmentSection?.exam_attach_link)
+              }
               style={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                justifyContent: "space-around",
-                margin: "10px 0",
+                width: "30px",
+                height: "30px",
+                color: "orange",
+                cursor: "pointer",
               }}
-            >
-              <label className="form_label">Recorded Audio :</label>
-              <audio
-                controls
-                src={ShowExamAttachmentModal?.exam_attach_link}
-              ></audio>
-            </div>
-          </>
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: "100%",
+              justifyContent: "space-around",
+              margin: "10px 0",
+            }}
+          >
+            <label className="form_label">Recorded Audio :</label>
+            <audio
+              controls
+              src={ShowExamAttachmentSection?.exam_attach_link}
+            ></audio>
+          </div>
         )}
       </Modal>
 
+      {/* Show/Hide Modal */}
       <Modal
         title="hide offline session exam"
         open={showHideModal}
