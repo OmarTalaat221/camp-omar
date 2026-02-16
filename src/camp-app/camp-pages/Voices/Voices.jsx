@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import { Button, Modal, Table, message } from "antd";
 import { BASE_URL } from "../../../Api/baseUrl";
@@ -6,10 +6,12 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { useParams } from "react-router-dom";
 import { FcAudioFile } from "react-icons/fc";
+import { FiTrash2 } from "react-icons/fi";
 
 export default function Voices() {
   const [addModal, setAddModal] = useState(false);
   const [voice, setVoice] = useState(null);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [allVoices, setAllVoices] = useState([]);
   const { section_id } = useParams();
@@ -17,8 +19,12 @@ export default function Voices() {
   const [rowData, setRowData] = useState({});
   const [editModal, setEditModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
-  const [deleteLoading , setDeleteLoading] = useState(false);
-  const [editLoading , setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+
+  // File input refs
+  const addFileInputRef = useRef(null);
+  const editFileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -29,10 +35,43 @@ export default function Voices() {
         return;
       }
       setVoice(file);
+
+      // Create preview URL for the audio file
+      const previewUrl = URL.createObjectURL(file);
+      setVoicePreviewUrl(previewUrl);
     }
   };
 
+  // Clear voice and preview
+  const clearVoicePreview = () => {
+    if (voicePreviewUrl) {
+      URL.revokeObjectURL(voicePreviewUrl);
+      setVoicePreviewUrl(null);
+    }
+    setVoice(null);
+  };
+
+  // Remove selected file
+  const removeSelectedFile = (isEdit = false) => {
+    clearVoicePreview();
+
+    // Reset the appropriate file input
+    const fileInput = isEdit
+      ? editFileInputRef.current
+      : addFileInputRef.current;
+    if (fileInput) {
+      fileInput.value = "";
+    }
+
+    message.info("File removed");
+  };
+
   async function handleAddVoice() {
+    if (!audioName) {
+      message.error("Please enter a name for the voice");
+      return;
+    }
+
     if (!voice) {
       message.error("Please select a voice file");
       return;
@@ -42,7 +81,7 @@ export default function Voices() {
       setIsLoading(true);
       const formData = new FormData();
       formData.append("voice", voice);
-      setIsLoading(true);
+
       axios
         .post(BASE_URL + "/admin/upload_voice.php", formData)
         .then((res) => {
@@ -60,10 +99,7 @@ export default function Voices() {
                 if (res2?.data?.status == "success") {
                   toast.success(res2?.data?.message);
                   handleGetAllVoices();
-                  setVoice(null);
-                  setAudioName("");
-                  setAddModal(false);
-                  setIsLoading(false);
+                  handleCloseAddModal();
                 }
               });
           } else {
@@ -87,7 +123,7 @@ export default function Voices() {
       .post(BASE_URL + "/admin/content/select_voices.php", data_send)
       .then((res) => {
         if (res?.data?.status == "success") {
-          setAllVoices(res?.data?.message);
+          setAllVoices(res?.data?.message || []);
         } else {
           toast.error(res?.data?.message);
         }
@@ -100,43 +136,60 @@ export default function Voices() {
       handleGetAllVoices();
     }
   }, [section_id]);
-  
+
+  // Cleanup preview URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (voicePreviewUrl) {
+        URL.revokeObjectURL(voicePreviewUrl);
+      }
+    };
+  }, [voicePreviewUrl]);
+
   function handleDeleteVoice() {
     const data_send = {
-      audio_id : rowData?.audio_id
-    }
-    
+      audio_id: rowData?.audio_id,
+    };
+
     setDeleteLoading(true);
-    axios.post(BASE_URL +"/admin/content/delete_voice.php", data_send)
-    .then(res => {
-      console.log(res)
-      if(res?.data?.status=="success") {
-        toast.success(res?.data?.message);
-        handleGetAllVoices();
-        setDeleteModal(false);
-      }else {
-        toast.error(res?.data?.message);
-      }
-    }).catch(e =>console.log(e))
-    .finally(() => setDeleteLoading(false))
+    axios
+      .post(BASE_URL + "/admin/content/delete_voice.php", data_send)
+      .then((res) => {
+        console.log(res);
+        if (res?.data?.status == "success") {
+          toast.success(res?.data?.message);
+          handleGetAllVoices();
+          setDeleteModal(false);
+        } else {
+          toast.error(res?.data?.message);
+        }
+      })
+      .catch((e) => console.log(e))
+      .finally(() => setDeleteLoading(false));
   }
 
   function handleEditVoice() {
+    if (!rowData?.audio_name) {
+      message.error("Please enter a name for the voice");
+      return;
+    }
+
     setEditLoading(true);
-    
+
     if (voice) {
       const formData = new FormData();
       formData.append("voice", voice);
-      
-      axios.post(BASE_URL + "/admin/upload_voice.php", formData)
+
+      axios
+        .post(BASE_URL + "/admin/upload_voice.php", formData)
         .then((res) => {
           if (res?.data?.status === "success") {
             const data_send = {
               audio_id: rowData?.audio_id,
               audio_name: rowData?.audio_name,
-              audio_link: res?.data?.message
+              audio_link: res?.data?.message,
             };
-            
+
             updateVoiceRecord(data_send);
           } else {
             toast.error(res?.data?.message);
@@ -153,21 +206,21 @@ export default function Voices() {
       const data_send = {
         audio_id: rowData?.audio_id,
         audio_name: rowData?.audio_name,
-        audio_link : rowData?.audio_link
+        audio_link: rowData?.audio_link,
       };
-      
+
       updateVoiceRecord(data_send);
     }
   }
 
   function updateVoiceRecord(data) {
-    axios.post(BASE_URL + "/admin/content/edit_voice.php", data)
+    axios
+      .post(BASE_URL + "/admin/content/edit_voice.php", data)
       .then((res) => {
         if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
           handleGetAllVoices();
-          setEditModal(false);
-          setVoice(null);
+          handleCloseEditModal();
         } else {
           toast.error(res?.data?.message);
         }
@@ -180,6 +233,27 @@ export default function Voices() {
         setEditLoading(false);
       });
   }
+
+  // Clean up when closing modals
+  const handleCloseAddModal = () => {
+    setAddModal(false);
+    setVoice(null);
+    setAudioName("");
+    clearVoicePreview();
+    if (addFileInputRef.current) {
+      addFileInputRef.current.value = "";
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModal(false);
+    setVoice(null);
+    setRowData({});
+    clearVoicePreview();
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = "";
+    }
+  };
 
   const columns = [
     {
@@ -197,7 +271,7 @@ export default function Voices() {
       key: "audio_link",
       title: "Audio Link",
       render: (row) => (
-        <a href={row} target="_blank">
+        <a href={row} target="_blank" rel="noopener noreferrer">
           <FcAudioFile style={{ width: "30px", height: "30px" }} />
         </a>
       ),
@@ -219,7 +293,6 @@ export default function Voices() {
           <Button
             onClick={() => {
               setRowData(row);
-
               setEditModal(true);
             }}
             color="primary btn-pill"
@@ -234,12 +307,11 @@ export default function Voices() {
 
   return (
     <>
-      <Breadcrumbs parent="sections" title=" section Voices" />
+      <Breadcrumbs parent="sections" title="Section Voices" />
       <div className="container-fluid">
         <div className="row">
           <div className="col-sm-12">
             <div className="card-header">
-              <h5>section voices</h5>
               <div className="card-body">
                 <button
                   className="btn btn-primary my-4"
@@ -251,7 +323,7 @@ export default function Voices() {
 
               <Table
                 columns={columns}
-                dataSource={allVoices?.length > 0 ? allVoices : []}
+                dataSource={allVoices}
                 scroll={{ x: "max-content" }}
               />
             </div>
@@ -259,14 +331,12 @@ export default function Voices() {
         </div>
       </div>
 
+      {/* Add Modal */}
       <Modal
         okText={isLoading ? "Loading..." : "Add"}
         title="Add Voice"
         open={addModal}
-        onCancel={() => {
-          setAddModal(false);
-          setVoice(null);
-        }}
+        onCancel={handleCloseAddModal}
         onOk={handleAddVoice}
         confirmLoading={isLoading}
       >
@@ -284,7 +354,48 @@ export default function Voices() {
 
           <div className="form_field">
             <label className="form_label">Audio</label>
+
+            {/* Show selected file preview */}
+            {voice && voicePreviewUrl && (
+              <div
+                style={{
+                  background: "#f5f5f5",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "12px",
+                  border: "1px solid #d9d9d9",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <span style={{ fontWeight: 500, color: "#000" }}>
+                    ✓ {voice.name}
+                  </span>
+                  <Button
+                    danger
+                    size="small"
+                    icon={<FiTrash2 />}
+                    onClick={() => removeSelectedFile(false)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+
+                <audio controls style={{ width: "100%" }}>
+                  <source src={voicePreviewUrl} type={voice.type} />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            )}
+
             <input
+              ref={addFileInputRef}
               type="file"
               accept="audio/*"
               onChange={handleFileChange}
@@ -294,13 +405,12 @@ export default function Voices() {
         </div>
       </Modal>
 
+      {/* Edit Modal */}
       <Modal
         okText={editLoading ? "Loading..." : "Edit"}
         title="Edit Voice"
         open={editModal}
-        onCancel={() => {
-          setEditModal(false);
-        }}
+        onCancel={handleCloseEditModal}
         onOk={handleEditVoice}
         confirmLoading={editLoading}
       >
@@ -310,25 +420,129 @@ export default function Voices() {
             <input
               type="text"
               className="form_input"
-              onChange={(e) => setRowData({...rowData , audio_name : e.target.value})}
+              onChange={(e) =>
+                setRowData({ ...rowData, audio_name: e.target.value })
+              }
               value={rowData?.audio_name}
               placeholder="Audio Name"
             />
           </div>
 
+          {/* Current Audio */}
+          {rowData?.audio_link && (
+            <div className="form_field">
+              <div className="d-flex align-items-center justify-content-between gap-2">
+                <label className="form_label">Current Audio</label>
+                <Button
+                  danger
+                  size="small"
+                  icon={<FiTrash2 />}
+                  onClick={() => setRowData({ ...rowData, audio_link: "" })}
+                >
+                  Remove
+                </Button>
+              </div>
+              <div
+                style={{
+                  background: "#f5f5f5",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "12px",
+                  border: "1px solid #d9d9d9",
+                }}
+              >
+                <audio controls style={{ width: "100%", marginBottom: "8px" }}>
+                  <source src={rowData.audio_link} type="audio/mpeg" />
+                  <source src={rowData.audio_link} type="audio/ogg" />
+                  <source src={rowData.audio_link} type="audio/wav" />
+                  Your browser does not support the audio element.
+                </audio>
+                <div style={{ fontSize: "12px", color: "#666" }}>
+                  <a
+                    href={rowData.audio_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#1890ff" }}
+                  >
+                    Open in new tab →
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New Audio Upload */}
           <div className="form_field">
-            <label className="form_label">Audio</label>
+            <label className="form_label">
+              {rowData?.audio_link ? "Replace Audio (Optional)" : "Audio"}
+            </label>
+
+            {/* Show new file preview */}
+            {voice && voicePreviewUrl && (
+              <div
+                style={{
+                  background: "#fff7e6",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "12px",
+                  border: "1px solid #ffc53d",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <span style={{ fontWeight: 500, color: "#fa8c16" }}>
+                    New: {voice.name}
+                  </span>
+                  <Button
+                    danger
+                    size="small"
+                    icon={<FiTrash2 />}
+                    onClick={() => removeSelectedFile(true)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+
+                <audio controls style={{ width: "100%" }}>
+                  <source src={voicePreviewUrl} type={voice.type} />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            )}
+
             <input
+              ref={editFileInputRef}
               type="file"
               accept="audio/*"
               onChange={handleFileChange}
               className="form-control"
             />
+
+            {rowData?.audio_link && !voice && (
+              <small
+                style={{ color: "#888", display: "block", marginTop: "5px" }}
+              >
+                Leave empty to keep the current audio file
+              </small>
+            )}
           </div>
         </div>
       </Modal>
 
-      <Modal open={deleteModal} onCancel={() => setDeleteModal(false)} okText={deleteLoading ? "Loading...." :"Delete"} onOk={handleDeleteVoice} onClose={() => setDeleteModal(false)}>
+      {/* Delete Modal */}
+      <Modal
+        open={deleteModal}
+        onCancel={() => setDeleteModal(false)}
+        okText={deleteLoading ? "Loading...." : "Delete"}
+        onOk={handleDeleteVoice}
+        onClose={() => setDeleteModal(false)}
+      >
         <h3>Do You Want to delete this voice?</h3>
       </Modal>
     </>

@@ -12,294 +12,225 @@ export const Roundes = () => {
   const { branch_id } = useParams();
   const navigate = useNavigate();
   const [Rounds, setRounds] = useState([]);
-  const [AddRoundModal, setAddRoundModal] = useState(false);
-  const [DeleteRound, setDeleteRound] = useState(null);
-  const [EditRound, setEditRound] = useState(null);
-  const [FinishRound, setFinishRound] = useState(null);
-  const [UpdateRoundLevel, setUpdateRoundLevel] = useState(null);
-  const [UpdateRoundLevelData, setUpdateRoundLevelData] = useState({
-    level_id: null,
-  });
-
   const [Levels, setLevels] = useState([]);
 
-  const [NewRoundData, setNewRoundData] = useState({
-    Round_name: null,
-  });
+  // Modal States (للفتح والإغلاق فقط)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [isUpdateLevelModalOpen, setIsUpdateLevelModalOpen] = useState(false);
 
-  function handleSelectLevels() {
+  // Data States (للبيانات فقط)
+  const [selectedRound, setSelectedRound] = useState(null);
+  const [newRoundData, setNewRoundData] = useState({ round_name: "" });
+  const [editRoundData, setEditRoundData] = useState({
+    round_id: null,
+    round_name: "",
+  });
+  const [updateLevelData, setUpdateLevelData] = useState({ level_id: null });
+
+  // Loading states
+  const [loading, setLoading] = useState(false);
+
+  // ============ Handlers for Opening Modals ============
+  const openAddModal = () => {
+    setNewRoundData({ round_name: "" });
+    setIsAddModalOpen(true);
+  };
+
+  const openEditModal = (record) => {
+    setEditRoundData({
+      round_id: record.round_id,
+      round_name: record.round_name,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const openDeleteModal = (record) => {
+    setSelectedRound(record);
+    setIsDeleteModalOpen(true);
+  };
+
+  const openFinishModal = (record) => {
+    setSelectedRound(record);
+    setIsFinishModalOpen(true);
+  };
+
+  const openUpdateLevelModal = (record) => {
+    setSelectedRound(record);
+    setUpdateLevelData({ level_id: null });
+    setIsUpdateLevelModalOpen(true);
+  };
+
+  // ============ Handlers for Closing Modals ============
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    // تأخير مسح البيانات حتى انتهاء الـ animation
+    setTimeout(() => setNewRoundData({ round_name: "" }), 300);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setTimeout(() => setEditRoundData({ round_id: null, round_name: "" }), 300);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setTimeout(() => setSelectedRound(null), 300);
+  };
+
+  const closeFinishModal = () => {
+    setIsFinishModalOpen(false);
+    setTimeout(() => setSelectedRound(null), 300);
+  };
+
+  const closeUpdateLevelModal = () => {
+    setIsUpdateLevelModalOpen(false);
+    setTimeout(() => {
+      setSelectedRound(null);
+      setUpdateLevelData({ level_id: null });
+    }, 300);
+  };
+
+  // ============ API Calls ============
+  const handleSelectLevels = () => {
     axios
       .get(BASE_URL + "/admin/content/select_levels.php")
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setLevels(res?.data?.message);
         }
       })
       .catch((e) => console.log(e));
-  }
-  useEffect(() => {
-    handleSelectLevels();
-  }, []);
+  };
 
-  const levelOptions = Levels.map((level) => {
-    return { label: level.level_name, value: level.level_id };
-  });
-
-  function handleGetRounds() {
-    const dataSend = {
-      branch_id: branch_id,
-    };
-
+  const handleGetRounds = () => {
     axios
       .post(
         BASE_URL + "/admin/round/select_round.php",
-        JSON.stringify(dataSend)
+        JSON.stringify({ branch_id })
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           setRounds(res?.data?.message);
         }
       })
       .catch((e) => console.log(e));
-  }
+  };
 
   useEffect(() => {
+    handleSelectLevels();
     handleGetRounds();
-  }, []);
+  }, [branch_id]);
 
-  const columns = [
-    {
-      id: "round_id",
-      dataIndex: "round_id",
-      title: "#",
-    },
-    {
-      id: "round_name",
-      dataIndex: "round_name",
-      title: "round name",
-    },
-    {
-      title: "Actions",
-      render: (text, row) => {
-        const items = [
-          // {
-          //   key: 4,
-          //   label: (
-          //     <button
-          //       className="btn btn-primary"
-          //       onClick={() => {
-          //         // setDeleteBranchModal(row);
-          //         navigate(
-          //           `${process.env.PUBLIC_URL}/branches/${branch_id}/Roundes/${row?.round_id}/groups`
-          //         );
-          //       }}
-          //     >
-          //       rounde's groups
-          //     </button>
-          //   ),
-          // },
-          {
-            key: 5,
-            label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setDeleteRound(row);
-                }}
-              >
-                Delete round
-              </button>
-            ),
-          },
-          {
-            key: 6,
-            label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setEditRound(row);
-                }}
-              >
-                Edit round
-              </button>
-            ),
-          },
-          {
-            key: 7,
-            label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setFinishRound(row);
-                }}
-              >
-                finish round
-              </button>
-            ),
-          },
-          {
-            key: 8,
-            label: (
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setUpdateRoundLevel(row);
-                }}
-              >
-                Update round
-              </button>
-            ),
-          },
-          {
-            key: 9,
-            label: (
-              <Link
-                to={`/groups?round_id=${row.round_id}`}
-                className="btn btn-primary text-white"
-                // onClick={() => {
-                //   setUpdateRoundLevel(row);
-                // }}
-              >
-                Groups
-              </Link>
-            ),
-          },
+  const handleAddNewRound = () => {
+    if (!newRoundData.round_name?.trim()) {
+      toast.error("Please enter round name");
+      return;
+    }
 
-          // {
-          //   key: 10,
-          //   label: (
-          //     <Link
-          //       to={`${process.env.PUBLIC_URL}/roundes/${row.round_id}/upgrade`}
-          //       className="btn btn-primary text-white"
-          //     >
-          //       Upgrade Students
-          //     </Link>
-          //   ),
-          // },
-          {
-            key: 11,
-            label: (
-              <Link
-                to={`${process.env.PUBLIC_URL}/roundes/${row.round_id}/upgrade-round`}
-                className="btn btn-primary text-white"
-              >
-                Upgrade Rounds
-              </Link>
-            ),
-          },
-        ];
-        return (
-          <div className="d-flex gap-2 align-items-center">
-            <Dropdown
-              menu={{
-                items,
-              }}
-              placement="bottom"
-            >
-              <Button
-                style={{ display: "flex", flexDirection: "column", gap: "3px" }}
-              >
-                <FaEllipsisVertical />
-              </Button>
-            </Dropdown>
-          </div>
-        );
-      },
-    },
-  ];
-
-  function handleAddNewRound() {
+    setLoading(true);
     const dataSend = {
-      round_name: NewRoundData?.Round_name,
+      round_name: newRoundData.round_name,
       branch_id: branch_id,
     };
+
     axios
       .post(BASE_URL + "/admin/round/add_round.php", JSON.stringify(dataSend))
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          setAddRoundModal(false);
+          closeAddModal();
           handleGetRounds();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
-  }
+      .catch((e) => console.log(e))
+      .finally(() => setLoading(false));
+  };
 
-  function handleDeleteRound(round_id) {
-    const dataSend = {
-      round_id: round_id,
-    };
+  const handleDeleteRound = () => {
+    if (!selectedRound?.round_id) return;
+
+    setLoading(true);
     axios
       .post(
         BASE_URL + "/admin/round/delete_round.php",
-        JSON.stringify(dataSend)
+        JSON.stringify({ round_id: selectedRound.round_id })
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          setDeleteRound(null);
+          closeDeleteModal();
           handleGetRounds();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
-  }
+      .catch((e) => console.log(e))
+      .finally(() => setLoading(false));
+  };
 
-  function handleFinishRound(round_id) {
-    const dataSend = {
-      round_id: round_id,
-    };
+  const handleFinishRound = () => {
+    if (!selectedRound?.round_id) return;
+
+    setLoading(true);
     axios
       .post(
         BASE_URL + "/admin/round/finish_round.php",
-        JSON.stringify(dataSend)
+        JSON.stringify({ round_id: selectedRound.round_id })
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          setFinishRound(null);
+          closeFinishModal();
           handleGetRounds();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
-  }
+      .catch((e) => console.log(e))
+      .finally(() => setLoading(false));
+  };
 
-  function handleEditRound() {
-    const dataSend = {
-      round_id: EditRound?.round_id,
-      round_name: EditRound?.round_name,
-    };
+  const handleEditRound = () => {
+    if (!editRoundData.round_name?.trim()) {
+      toast.error("Please enter round name");
+      return;
+    }
+
+    setLoading(true);
     axios
-      .post(BASE_URL + "/admin/round/edit_round.php", JSON.stringify(dataSend))
+      .post(
+        BASE_URL + "/admin/round/edit_round.php",
+        JSON.stringify(editRoundData)
+      )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          setEditRound(null);
+          closeEditModal();
           handleGetRounds();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
-  }
+      .catch((e) => console.log(e))
+      .finally(() => setLoading(false));
+  };
 
-  const handelUpdateForLevel = async (round_id) => {
+  const handleUpdateForLevel = () => {
+    if (!updateLevelData.level_id) {
+      toast.error("Please select a level");
+      return;
+    }
+
+    setLoading(true);
     const dataSend = {
-      round_id: round_id,
-      level_id: UpdateRoundLevelData?.level_id,
+      round_id: selectedRound.round_id,
+      level_id: updateLevelData.level_id,
     };
-    console.log(dataSend);
 
     axios
       .post(
@@ -307,17 +238,119 @@ export const Roundes = () => {
         JSON.stringify(dataSend)
       )
       .then((res) => {
-        console.log(res);
-        if (res?.data?.status == "success") {
+        if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
-          setUpdateRoundLevel(null);
+          closeUpdateLevelModal();
           handleGetRounds();
         } else {
           toast.error(res?.data?.message);
         }
       })
-      .catch((e) => console.log(e));
+      .catch((e) => console.log(e))
+      .finally(() => setLoading(false));
   };
+
+  const levelOptions = Levels.map((level) => ({
+    label: level.level_name,
+    value: level.level_id,
+  }));
+
+  const columns = [
+    {
+      key: "round_id",
+      dataIndex: "round_id",
+      title: "#",
+    },
+    {
+      key: "round_name",
+      dataIndex: "round_name",
+      title: "Round Name",
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_, record) => {
+        const items = [
+          {
+            key: "delete",
+            label: (
+              <button
+                className="btn btn-primary"
+                onClick={() => openDeleteModal(record)}
+              >
+                Delete round
+              </button>
+            ),
+          },
+          {
+            key: "edit",
+            label: (
+              <button
+                className="btn btn-primary"
+                onClick={() => openEditModal(record)}
+              >
+                Edit round
+              </button>
+            ),
+          },
+          {
+            key: "finish",
+            label: (
+              <button
+                className="btn btn-primary"
+                onClick={() => openFinishModal(record)}
+              >
+                Finish round
+              </button>
+            ),
+          },
+          {
+            key: "update-level",
+            label: (
+              <button
+                className="btn btn-primary"
+                onClick={() => openUpdateLevelModal(record)}
+              >
+                Update round
+              </button>
+            ),
+          },
+          {
+            key: "groups",
+            label: (
+              <Link
+                to={`/groups?round_id=${record.round_id}`}
+                className="btn btn-primary text-white"
+              >
+                Groups
+              </Link>
+            ),
+          },
+          {
+            key: "upgrade",
+            label: (
+              <Link
+                to={`${process.env.PUBLIC_URL}/roundes/${record.round_id}/upgrade-round`}
+                className="btn btn-primary text-white"
+              >
+                Upgrade Rounds
+              </Link>
+            ),
+          },
+        ];
+
+        return (
+          <Dropdown menu={{ items }} placement="bottom">
+            <Button
+              style={{ display: "flex", flexDirection: "column", gap: "3px" }}
+            >
+              <FaEllipsisVertical />
+            </Button>
+          </Dropdown>
+        );
+      },
+    },
+  ];
 
   return (
     <>
@@ -331,20 +364,19 @@ export const Roundes = () => {
                 <Button
                   color="primary btn-pill"
                   style={{ margin: "10px 0" }}
-                  onClick={() => setAddRoundModal(true)}
+                  onClick={openAddModal}
                 >
                   Add Round
                 </Button>
               </div>
               <div className="card-body">
                 <Table
-                  scroll={{
-                    x: "max-content",
-                  }}
+                  scroll={{ x: "max-content" }}
                   columns={columns}
                   dataSource={Rounds}
+                  rowKey="round_id"
                   rowClassName={(record) =>
-                    record.finish == "1" ? "finished-row" : ""
+                    record.finish === "1" ? "finished-row" : ""
                   }
                 />
               </div>
@@ -352,131 +384,144 @@ export const Roundes = () => {
           </div>
         </div>
       </div>
+
+      {/* Add Round Modal */}
       <Modal
         title="Add Round"
-        open={AddRoundModal}
-        onCancel={() => setAddRoundModal(false)}
+        open={isAddModalOpen}
+        onCancel={closeAddModal}
         footer={[
-          <Button onClick={handleAddNewRound}>Add</Button>,
-          <Button key="cancel" onClick={() => setAddRoundModal(false)}>
+          <Button
+            key="add"
+            type="primary"
+            loading={loading}
+            onClick={handleAddNewRound}
+          >
+            Add
+          </Button>,
+          <Button key="cancel" onClick={closeAddModal}>
             Cancel
           </Button>,
         ]}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">Round Name</label>
-            <input
-              type="text"
-              className="form_input"
-              // value={EditBranchModal?.branch_name || ""}
-              onChange={(e) => {
-                setNewRoundData({
-                  ...NewRoundData,
-                  Round_name: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
+        <div className="form_field">
+          <label className="form_label">Round Name</label>
+          <input
+            type="text"
+            className="form_input"
+            value={newRoundData.round_name}
+            onChange={(e) =>
+              setNewRoundData({ ...newRoundData, round_name: e.target.value })
+            }
+          />
+        </div>
       </Modal>
 
+      {/* Edit Round Modal */}
       <Modal
-        title="Update Round to another level"
-        open={UpdateRoundLevel}
-        onCancel={() => setUpdateRoundLevel(null)}
+        title="Edit Round"
+        open={isEditModalOpen}
+        onCancel={closeEditModal}
         footer={[
           <Button
-            onClick={() => handelUpdateForLevel(UpdateRoundLevel?.round_id)}
+            key="edit"
+            type="primary"
+            loading={loading}
+            onClick={handleEditRound}
+          >
+            Edit
+          </Button>,
+          <Button key="cancel" onClick={closeEditModal}>
+            Cancel
+          </Button>,
+        ]}
+      >
+        <div className="form_field">
+          <label className="form_label">Round Name</label>
+          <input
+            type="text"
+            className="form_input"
+            value={editRoundData.round_name}
+            onChange={(e) =>
+              setEditRoundData({ ...editRoundData, round_name: e.target.value })
+            }
+          />
+        </div>
+      </Modal>
+
+      {/* Delete Round Modal */}
+      <Modal
+        title="Delete Round"
+        open={isDeleteModalOpen}
+        onCancel={closeDeleteModal}
+        footer={[
+          <Button
+            key="delete"
+            danger
+            loading={loading}
+            onClick={handleDeleteRound}
+          >
+            Delete
+          </Button>,
+          <Button key="cancel" onClick={closeDeleteModal}>
+            Cancel
+          </Button>,
+        ]}
+      >
+        <h3>Are you sure you want to delete "{selectedRound?.round_name}"?</h3>
+      </Modal>
+
+      {/* Finish Round Modal */}
+      <Modal
+        title="Finish Round"
+        open={isFinishModalOpen}
+        onCancel={closeFinishModal}
+        footer={[
+          <Button
+            key="finish"
+            type="primary"
+            loading={loading}
+            onClick={handleFinishRound}
+          >
+            Finish
+          </Button>,
+          <Button key="cancel" onClick={closeFinishModal}>
+            Cancel
+          </Button>,
+        ]}
+      >
+        <h3>Are you sure you want to finish "{selectedRound?.round_name}"?</h3>
+      </Modal>
+
+      {/* Update Round Level Modal */}
+      <Modal
+        title="Update Round to Another Level"
+        open={isUpdateLevelModalOpen}
+        onCancel={closeUpdateLevelModal}
+        footer={[
+          <Button
+            key="update"
+            type="primary"
+            loading={loading}
+            onClick={handleUpdateForLevel}
           >
             Update
           </Button>,
-          <Button key="cancel" onClick={() => setUpdateRoundLevel(null)}>
+          <Button key="cancel" onClick={closeUpdateLevelModal}>
             Cancel
           </Button>,
         ]}
       >
-        <>
-          <div className="form_field">
-            <label className="form_label">Round Name</label>
-            <Select
-              options={levelOptions}
-              onChange={(e) => {
-                setUpdateRoundLevelData({
-                  ...UpdateRoundLevelData,
-                  level_id: e,
-                });
-              }}
-            />
-          </div>
-        </>
-      </Modal>
-
-      <Modal
-        title="Edit Round"
-        open={EditRound}
-        onCancel={() => setEditRound(null)}
-        footer={[
-          <Button onClick={handleEditRound}>Edit</Button>,
-          <Button key="cancel" onClick={() => setEditRound(null)}>
-            Cancel
-          </Button>,
-        ]}
-      >
-        <>
-          <div className="form_field">
-            <label className="form_label">Round Name</label>
-            <input
-              type="text"
-              className="form_input"
-              defaultValue={EditRound?.round_name || ""}
-              onChange={(e) => {
-                setEditRound({
-                  ...EditRound,
-                  round_name: e.target.value,
-                });
-              }}
-            />
-          </div>
-        </>
-      </Modal>
-
-      <Modal
-        title="Delete round"
-        open={DeleteRound}
-        footer={
-          <>
-            <Button
-              style={{ margin: "0px 10px " }}
-              onClick={() => handleDeleteRound(DeleteRound?.round_id)}
-            >
-              Delete
-            </Button>
-            <Button onClick={() => setDeleteRound(null)}>Cancel</Button>
-          </>
-        }
-        onCancel={() => setDeleteRound(null)}
-      >
-        <h3>Are you sure that you want to delete this round</h3>
-      </Modal>
-
-      <Modal
-        title="Finish round"
-        open={FinishRound}
-        footer={
-          <>
-            <Button
-              style={{ margin: "0px 10px " }}
-              onClick={() => handleFinishRound(FinishRound?.round_id)}
-            >
-              finish
-            </Button>
-            <Button onClick={() => setFinishRound(null)}>Cancel</Button>
-          </>
-        }
-        onCancel={() => setFinishRound(null)}
-      >
-        <h3>Are you sure that you want to Finish this round</h3>
+        <div className="form_field">
+          <label className="form_label">Select Level</label>
+          <Select
+            style={{ width: "100%" }}
+            placeholder="Select a level"
+            options={levelOptions}
+            value={updateLevelData.level_id}
+            onChange={(value) => setUpdateLevelData({ level_id: value })}
+          />
+        </div>
       </Modal>
     </>
   );

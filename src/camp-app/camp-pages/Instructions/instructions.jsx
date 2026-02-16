@@ -25,6 +25,7 @@ import {
   FiUpload,
   FiDownload,
   FiType,
+  FiAlertCircle,
 } from "react-icons/fi";
 import { BiArrowBack } from "react-icons/bi";
 import { AiOutlineInbox } from "react-icons/ai";
@@ -35,6 +36,15 @@ import "./style.css";
 
 const { TextArea } = Input;
 
+// Initial state for all content types
+const INITIAL_CONTENT_STATE = {
+  text: "",
+  image: [],
+  video: [],
+  voice: [],
+  file_attachment: [],
+};
+
 const GroupInstructions = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -42,13 +52,18 @@ const GroupInstructions = () => {
 
   const [instructions, setInstructions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Modal State
   const [modalVisible, setModalVisible] = useState(false);
   const [editingInstruction, setEditingInstruction] = useState(null);
+
+  // Form States
   const [selectedType, setSelectedType] = useState("text");
   const [instructionTitle, setInstructionTitle] = useState("");
-  const [textContent, setTextContent] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+
+  // Content state for each type
+  const [contentByType, setContentByType] = useState(INITIAL_CONTENT_STATE);
 
   const instructionTypes = [
     { value: "text", label: "Text", icon: <FiFileText />, color: "#eb5d22" },
@@ -93,12 +108,16 @@ const GroupInstructions = () => {
     }
   };
 
-  const handleAddNew = () => {
+  // Reset form to initial state
+  const resetForm = () => {
     setEditingInstruction(null);
     setSelectedType("text");
     setInstructionTitle("");
-    setTextContent("");
-    setUploadedFiles([]);
+    setContentByType(INITIAL_CONTENT_STATE);
+  };
+
+  const handleAddNew = () => {
+    resetForm();
     setModalVisible(true);
   };
 
@@ -107,11 +126,14 @@ const GroupInstructions = () => {
     setSelectedType(instruction.instruction_type);
     setInstructionTitle(instruction.title || "");
 
+    // Initialize fresh content state
+    const newContentState = { ...INITIAL_CONTENT_STATE };
+
+    // Populate the correct type with existing data
     if (instruction.instruction_type === "text") {
-      setTextContent(instruction.instruction);
-      setUploadedFiles([]);
+      newContentState.text = instruction.instruction;
     } else if (instruction.instruction_type === "image") {
-      const existingImages =
+      newContentState.image =
         instruction.instruction_array?.map((img, index) => ({
           uid: `existing-${index}`,
           name: img.split("/").pop() || `Image ${index + 1}`,
@@ -119,11 +141,9 @@ const GroupInstructions = () => {
           status: "done",
           isExisting: true,
         })) || [];
-      setUploadedFiles(existingImages);
-      setTextContent("");
     } else {
       // For video, voice, pdf - single file
-      setUploadedFiles([
+      newContentState[instruction.instruction_type] = [
         {
           uid: "existing-file",
           name: instruction.instruction.split("/").pop() || "File",
@@ -131,10 +151,10 @@ const GroupInstructions = () => {
           status: "done",
           isExisting: true,
         },
-      ]);
-      setTextContent("");
+      ];
     }
 
+    setContentByType(newContentState);
     setModalVisible(true);
   };
 
@@ -142,12 +162,10 @@ const GroupInstructions = () => {
     try {
       const res = await axios.post(
         `${BASE_URL}/admin/instructions/delete_instruction.php`,
-        {
-          id: id,
-        }
+        { id: id }
       );
 
-      if (res.data.status == "success") {
+      if (res.data.status === "success") {
         toast.success(res.data.message);
         fetchInstructions();
       }
@@ -175,13 +193,11 @@ const GroupInstructions = () => {
       setUploading(true);
       const endpoint = getUploadEndpoint(type);
       const response = await axios.post(endpoint, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       if (response?.data?.status === "success") {
-        return response?.data?.message; // Returns filename
+        return response?.data?.message;
       } else {
         throw new Error(response?.data?.message || "Upload failed");
       }
@@ -193,24 +209,52 @@ const GroupInstructions = () => {
     }
   };
 
-  const handleFilesChange = async (info) => {
+  // Check if can add more files
+  const canAddMoreFiles = (type) => {
+    if (type === "image") {
+      return true; // No limit for images
+    }
+    // For video, voice, pdf - allow only 1 file
+    return contentByType[type].length < 1;
+  };
+
+  // Handle file change for specific type
+  const handleFilesChange = async (info, type) => {
+    // Check file limit for non-image types
+    if (type !== "image" && contentByType[type].length >= 1) {
+      message.warning(`You can only upload one ${type.replace("_", " ")} file`);
+      return;
+    }
+
     if (info.file.status === "done" || info.file) {
       try {
         const uploadedFileName = await handleFileUpload(
           info.file.originFileObj || info.file,
-          selectedType
+          type
         );
 
-        setUploadedFiles((prev) => [
-          ...prev,
-          {
-            name: info.file.name,
-            url: uploadedFileName,
-            uid: info.file.uid,
-            status: "done",
-            isExisting: false,
-          },
-        ]);
+        const newFile = {
+          name: info.file.name,
+          url: uploadedFileName,
+          uid: info.file.uid,
+          status: "done",
+          isExisting: false,
+        };
+
+        setContentByType((prev) => {
+          // For non-image types, replace the existing file
+          if (type !== "image" && prev[type].length > 0) {
+            return {
+              ...prev,
+              [type]: [newFile], // Replace with new file
+            };
+          }
+          // For images or empty arrays, add to array
+          return {
+            ...prev,
+            [type]: [...prev[type], newFile],
+          };
+        });
 
         message.success(`${info.file.name} uploaded successfully`);
       } catch (error) {
@@ -219,44 +263,50 @@ const GroupInstructions = () => {
     }
   };
 
+  // Remove file from specific type
+  const handleRemoveFile = (type, uid) => {
+    setContentByType((prev) => ({
+      ...prev,
+      [type]: prev[type].filter((f) => f.uid !== uid),
+    }));
+  };
+
+  // Update text content
+  const handleTextChange = (value) => {
+    setContentByType((prev) => ({
+      ...prev,
+      text: value,
+    }));
+  };
+
   const handleSubmit = async () => {
     try {
-      // Validate title
       if (!instructionTitle.trim()) {
         toast.warning("Please enter a title");
-        setUploading(false);
         return;
       }
 
       setUploading(true);
 
       let instructionData = "";
+      const currentContent = contentByType[selectedType];
 
       if (selectedType === "text") {
-        if (!textContent.trim()) {
+        if (!currentContent.trim()) {
           toast.warning("Please enter some text");
           setUploading(false);
           return;
         }
-        instructionData = textContent;
+        instructionData = currentContent;
       } else {
-        if (uploadedFiles.length === 0) {
+        if (currentContent.length === 0) {
           toast.warning("Please upload at least one file");
           setUploading(false);
           return;
         }
-
-        const fileUrls = uploadedFiles.map((f) => {
-          return f.url;
-        });
-
-        // console.log(uploadedFiles, "uploadedFiles");
-        // console.log(fileUrls, "fileUrls");
-
+        const fileUrls = currentContent.map((f) => f.url);
         instructionData = fileUrls.join("**CAMP**");
       }
-
-      // return;
 
       const payload = {
         instruction_type: selectedType,
@@ -288,10 +338,7 @@ const GroupInstructions = () => {
         );
         setModalVisible(false);
         fetchInstructions();
-        // Reset form
-        setInstructionTitle("");
-        setTextContent("");
-        setUploadedFiles([]);
+        resetForm();
       } else {
         throw new Error(response?.data?.message || "Operation failed");
       }
@@ -301,6 +348,13 @@ const GroupInstructions = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setTimeout(() => {
+      resetForm();
+    }, 300);
   };
 
   const renderInstructionContent = (instruction) => {
@@ -321,10 +375,7 @@ const GroupInstructions = () => {
               {instruction.instruction_array?.map((img, index) => (
                 <div key={index} className="instruction-image-wrapper">
                   <Image
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                    }}
+                    style={{ width: "100%", height: "100%" }}
                     width={"100%"}
                     height={"100%"}
                     src={img}
@@ -340,7 +391,7 @@ const GroupInstructions = () => {
         return (
           <div className="instruction-video-wrapper">
             <video controls>
-              <source src={`${instruction?.instruction}`} type="video/mp4" />
+              <source src={instruction?.instruction} type="video/mp4" />
               Your browser does not support the video tag.
             </video>
           </div>
@@ -350,7 +401,7 @@ const GroupInstructions = () => {
         return (
           <div className="instruction-audio-wrapper">
             <audio controls style={{ width: "100%" }}>
-              <source src={`${instruction.instruction}`} type="audio/mpeg" />
+              <source src={instruction.instruction} type="audio/mpeg" />
               Your browser does not support the audio tag.
             </audio>
           </div>
@@ -360,7 +411,7 @@ const GroupInstructions = () => {
         return (
           <div
             className="instruction-file-preview"
-            onClick={() => window.open(`${instruction.instruction}`, "_blank")}
+            onClick={() => window.open(instruction.instruction, "_blank")}
           >
             <div className="instruction-file-icon">
               <FiFile />
@@ -374,7 +425,7 @@ const GroupInstructions = () => {
               icon={<FiDownload />}
               onClick={(e) => {
                 e.stopPropagation();
-                window.open(`${instruction.instruction}`, "_blank");
+                window.open(instruction.instruction, "_blank");
               }}
             >
               Download
@@ -387,19 +438,129 @@ const GroupInstructions = () => {
     }
   };
 
-  const uploadProps = {
-    beforeUpload: () => false,
-    onChange: handleFilesChange,
-    multiple: selectedType === "image",
+  // Upload props for current type
+  const getUploadProps = (type) => ({
+    beforeUpload: (file) => {
+      // Check file limit before upload
+      if (type !== "image" && contentByType[type].length >= 1) {
+        message.warning(
+          `You can only upload one ${type.replace("_", " ")} file. Please remove the existing file first.`
+        );
+        return Upload.LIST_IGNORE;
+      }
+      return false;
+    },
+    onChange: (info) => handleFilesChange(info, type),
+    multiple: type === "image", // Only allow multiple for images
     accept:
-      selectedType === "image"
+      type === "image"
         ? "image/*"
-        : selectedType === "video"
-        ? "video/*"
-        : selectedType === "voice"
-        ? "audio/*"
-        : ".pdf",
+        : type === "video"
+          ? "video/*"
+          : type === "voice"
+            ? "audio/*"
+            : ".pdf",
     showUploadList: false,
+    disabled: type !== "image" && contentByType[type].length >= 1,
+  });
+
+  // Render upload section for each type
+  const renderUploadSection = (type) => {
+    const files = contentByType[type] || [];
+    const typeConfig = instructionTypes.find((t) => t.value === type);
+    const isDisabled = type !== "image" && files.length >= 1;
+
+    return (
+      <div>
+        <div className="instruction-form-label">
+          <FiUpload className="instruction-form-label-icon" />
+          <span>
+            Upload {typeConfig?.label} *
+            {type !== "image" && (
+              <span
+                style={{
+                  color: "#faad14",
+                  fontSize: "12px",
+                  marginLeft: "8px",
+                }}
+              >
+                (Maximum 1 file)
+              </span>
+            )}
+          </span>
+        </div>
+
+        {isDisabled ? (
+          <div
+            style={{
+              background: "#f5f5f5",
+              border: "1px dashed #d9d9d9",
+              borderRadius: "8px",
+              padding: "20px",
+              textAlign: "center",
+              marginBottom: "16px",
+            }}
+          >
+            <FiAlertCircle
+              style={{
+                fontSize: "24px",
+                color: "#faad14",
+                marginBottom: "8px",
+              }}
+            />
+            <p style={{ margin: "8px 0", color: "#666" }}>
+              You already have a {typeConfig?.label.toLowerCase()} file
+              uploaded.
+            </p>
+            <p style={{ margin: "0", fontSize: "12px", color: "#999" }}>
+              Remove the existing file to upload a new one.
+            </p>
+          </div>
+        ) : (
+          <Upload.Dragger {...getUploadProps(type)}>
+            <div className="instruction-upload-area">
+              <FiUpload className="instruction-upload-icon" />
+              <p className="instruction-upload-text">
+                Click or drag file to this area to upload
+              </p>
+              <p className="instruction-upload-hint">
+                {type === "image"
+                  ? "Support for single or multiple image uploads"
+                  : `Upload single ${typeConfig?.label} file (max 1 file)`}
+              </p>
+            </div>
+          </Upload.Dragger>
+        )}
+
+        {files.length > 0 && (
+          <div className="instruction-upload-list">
+            {files.map((file, index) => (
+              <div key={file.uid || index} className="instruction-upload-item">
+                <div className="instruction-upload-item-icon">
+                  {typeConfig?.icon}
+                </div>
+                <div className="instruction-upload-item-info">
+                  <div className="instruction-upload-item-name">
+                    {file.name}
+                  </div>
+                  <div className="instruction-upload-item-size">
+                    {file.isExisting
+                      ? "Existing file"
+                      : "Uploaded successfully"}
+                  </div>
+                </div>
+                <Button
+                  type="link"
+                  danger
+                  icon={<FiTrash2 />}
+                  onClick={() => handleRemoveFile(type, file.uid)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -511,7 +672,6 @@ const GroupInstructions = () => {
                           </div>
 
                           <div className="instruction-item-body">
-                            {/* Display Title */}
                             {instruction.title && (
                               <h6 className="instruction-card-title">
                                 {instruction.title}
@@ -563,23 +723,10 @@ const GroupInstructions = () => {
           </div>
         }
         open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setInstructionTitle("");
-          setTextContent("");
-          setUploadedFiles([]);
-        }}
+        onCancel={handleCloseModal}
         width={700}
         footer={[
-          <Button
-            key="cancel"
-            onClick={() => {
-              setModalVisible(false);
-              setInstructionTitle("");
-              setTextContent("");
-              setUploadedFiles([]);
-            }}
-          >
+          <Button key="cancel" onClick={handleCloseModal}>
             Cancel
           </Button>,
           <Button
@@ -595,7 +742,7 @@ const GroupInstructions = () => {
         className="instruction-modal"
       >
         <div>
-          {/* Title Input - Always visible */}
+          {/* Title Input */}
           <div style={{ marginBottom: "24px" }}>
             <div className="instruction-form-label">
               <FiType className="instruction-form-label-icon" />
@@ -616,27 +763,67 @@ const GroupInstructions = () => {
           </div>
 
           <div className="instruction-type-selector">
-            {instructionTypes.map((type) => (
-              <div
-                key={type.value}
-                className={`instruction-type-option ${
-                  selectedType === type.value ? "active" : ""
-                }`}
-                onClick={() => {
-                  setSelectedType(type.value);
-                  setTextContent("");
-                  setUploadedFiles([]);
-                }}
-              >
-                <div className="instruction-type-option-icon">{type.icon}</div>
-                <span className="instruction-type-option-label">
-                  {type.label}
-                </span>
-              </div>
-            ))}
+            {instructionTypes.map((type) => {
+              // Show indicator if type has content
+              const hasContent =
+                type.value === "text"
+                  ? contentByType.text?.trim()
+                  : contentByType[type.value]?.length > 0;
+
+              const fileCount =
+                type.value !== "text"
+                  ? contentByType[type.value]?.length || 0
+                  : null;
+
+              return (
+                <div
+                  key={type.value}
+                  className={`instruction-type-option ${
+                    selectedType === type.value ? "active" : ""
+                  } ${hasContent ? "has-content" : ""}`}
+                  onClick={() => setSelectedType(type.value)}
+                >
+                  <div className="instruction-type-option-icon">
+                    {type.icon}
+                  </div>
+                  <span className="instruction-type-option-label">
+                    {type.label}
+                  </span>
+                  {hasContent && (
+                    <span className="content-indicator">
+                      {fileCount !== null && fileCount > 0 ? fileCount : "✓"}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Content based on type */}
+
+          <div
+            style={{
+              marginTop: "20px",
+              marginBottom: "20px",
+              padding: "12px",
+              background: "#f5f5f5",
+              borderRadius: "8px",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
+              <strong>Content Summary:</strong>
+              {contentByType.text && " Text ✓"}
+              {contentByType.image.length > 0 &&
+                ` | Images (${contentByType.image.length}) ✓`}
+              {contentByType.video.length > 0 && " | Video (1) ✓"}
+              {contentByType.voice.length > 0 && " | Voice (1) ✓"}
+              {contentByType.file_attachment.length > 0 && " | PDF (1) ✓"}
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: "11px", color: "red" }}>
+              Note: Only the selected type ({selectedType}) content will be
+              saved.
+            </p>
+          </div>
           {selectedType === "text" ? (
             <div>
               <div className="instruction-form-label">
@@ -646,82 +833,61 @@ const GroupInstructions = () => {
               <TextArea
                 rows={6}
                 placeholder="Enter your instruction text here..."
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
+                value={contentByType.text}
+                onChange={(e) => handleTextChange(e.target.value)}
               />
             </div>
           ) : (
-            <div>
-              <div className="instruction-form-label">
-                <FiUpload className="instruction-form-label-icon" />
-                <span>
-                  Upload{" "}
-                  {
-                    instructionTypes.find((t) => t.value === selectedType)
-                      ?.label
-                  }{" "}
-                  *
-                </span>
-              </div>
-
-              <Upload.Dragger {...uploadProps}>
-                <div className="instruction-upload-area">
-                  <FiUpload className="instruction-upload-icon" />
-                  <p className="instruction-upload-text">
-                    Click or drag file to this area to upload
-                  </p>
-                  <p className="instruction-upload-hint">
-                    {selectedType === "image"
-                      ? "Support for single or multiple image uploads"
-                      : `Upload ${
-                          instructionTypes.find((t) => t.value === selectedType)
-                            ?.label
-                        }`}
-                  </p>
-                </div>
-              </Upload.Dragger>
-
-              {uploadedFiles.length > 0 && (
-                <div className="instruction-upload-list">
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={file.uid || index}
-                      className="instruction-upload-item"
-                    >
-                      <div className="instruction-upload-item-icon">
-                        {
-                          instructionTypes.find((t) => t.value === selectedType)
-                            ?.icon
-                        }
-                      </div>
-                      <div className="instruction-upload-item-info">
-                        <div className="instruction-upload-item-name">
-                          {file.name}
-                        </div>
-                        <div className="instruction-upload-item-size">
-                          {file.isExisting
-                            ? "Existing file"
-                            : "Uploaded successfully"}
-                        </div>
-                      </div>
-                      <Button
-                        type="link"
-                        danger
-                        icon={<FiTrash2 />}
-                        onClick={() =>
-                          setUploadedFiles(
-                            uploadedFiles.filter((f) => f.uid !== file.uid)
-                          )
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            renderUploadSection(selectedType)
           )}
+
+          {/* Show summary of all content */}
         </div>
       </Modal>
+
+      <style jsx>{`
+        .instruction-type-option {
+          position: relative;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .content-indicator {
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background: #52c41a;
+          color: white;
+          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 10px;
+          font-weight: bold;
+        }
+        .instruction-upload-item {
+          display: flex;
+          align-items: center;
+          padding: 12px;
+          background: #fafafa;
+          border-radius: 8px;
+          margin-top: 8px;
+        }
+        .instruction-upload-item-icon {
+          font-size: 20px;
+          margin-right: 12px;
+          color: #fff;
+        }
+        .instruction-upload-item-info {
+          flex: 1;
+        }
+        .instruction-upload-item-name {
+          font-weight: 500;
+          color: #333;
+        }
+        .instruction-upload-item-size {
+          font-size: 12px;
+          color: #999;
+        }
+      `}</style>
     </>
   );
 };

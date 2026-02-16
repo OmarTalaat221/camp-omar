@@ -84,6 +84,8 @@ const LevelSections = () => {
   const closeAddExamAttachmentModal = () => {
     setIsAddExamAttachmentModalOpen(false);
     setExamAttachmentSection(null);
+    setVoice(null);
+    setAudioUrl(null);
   };
 
   const openShowExamAttachmentModal = (row) => {
@@ -421,11 +423,7 @@ const LevelSections = () => {
 
   const addAudioElement = (blob) => {
     const url = URL.createObjectURL(blob);
-    const audio = document.createElement("audio");
     setVoice(url);
-    audio.src = url;
-    audio.controls = true;
-    document.body.appendChild(audio);
     const file = new File([blob], "recording.mp3", { type: "audio/mp3" });
     setAudioUrl(file);
   };
@@ -459,7 +457,7 @@ const LevelSections = () => {
 
   return (
     <>
-      <Breadcrumbs parent="levels" title="sections List" />
+      <Breadcrumbs parent="levels" title="Sections List" />
       <div className="container-fluid">
         <div className="row">
           <div className="col-sm-12">
@@ -652,6 +650,7 @@ const LevelSections = () => {
             <label className="form_label">pdf</label>
             <input
               type="file"
+              accept=".pdf"
               className="form_input"
               onChange={(e) => {
                 setAttchmentPdf(e.target.files[0]);
@@ -673,6 +672,7 @@ const LevelSections = () => {
               <label className="form_label">upload voice</label>
               <input
                 type="file"
+                accept="audio/*"
                 className="form_input"
                 onChange={(e) => {
                   setAudioUrl(e.target.files[0]);

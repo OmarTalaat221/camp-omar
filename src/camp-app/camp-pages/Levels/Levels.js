@@ -613,11 +613,7 @@ export default function Levels() {
   const addAudioElement = (blob) => {
     console.log(blob);
     const url = URL.createObjectURL(blob);
-    const audio = document.createElement("audio");
     setVoice(url);
-    audio.src = url;
-    audio.controls = true;
-    document.body.appendChild(audio);
     console.log(url);
     const file = new File([blob], "recording.mp3", { type: "audio/mp3" });
     setAudioUrl(file);
@@ -797,7 +793,11 @@ export default function Levels() {
       <Modal
         title="Add Exam Attachment"
         open={AddExamAttachmentModal}
-        onCancel={() => setAddExamAttachmentModal(null)}
+        onCancel={() => {
+          setAddExamAttachmentModal(null);
+          setVoice(null);
+          setAudioUrl(null);
+        }}
         footer={[
           <Button
             type="primary"

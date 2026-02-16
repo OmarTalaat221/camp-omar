@@ -49,7 +49,7 @@ const TracksList = () => {
       render: (text, row) => (
         <>
           {row?.status == 0 ? (
-            <p style={{ color: "red" }}>deActive</p>
+            <p style={{ color: "red" }}>Deactivate</p>
           ) : (
             <p style={{ color: "green" }}>Active</p>
           )}
@@ -63,7 +63,7 @@ const TracksList = () => {
       render: (text, row) => (
         <>
           <Button onClick={() => setUpdateStatusModal(row)}>
-            {row?.status == 0 ? "Active" : "deActive"}
+            {row?.status == 0 ? "Active" : "Deactivate"}
           </Button>
         </>
       ),
@@ -126,15 +126,15 @@ const TracksList = () => {
               <div className="card-header">
                 <h5>Tracks List</h5>
               </div>
-              {/* <div className="card-body">
-                <button
+              <div className="card-body">
+                {/* <button
                   className="btn btn-primary mb-3"
                   onClick={() => setAddTrackModal(true)}
                 >
                   Add Track
-                </button>
+                </button> */}
                 <Table columns={columns} dataSource={Tracks} />
-              </div> */}
+              </div>
             </div>
           </div>
         </div>
@@ -168,7 +168,7 @@ const TracksList = () => {
       </Modal>
 
       <Modal
-        title={UpdateStatusModal?.status == 0 ? "Active" : "deActive"}
+        title={UpdateStatusModal?.status == 0 ? "Active" : "Deactivate"}
         open={UpdateStatusModal}
         // onOk={handleDeleteLevel}
         onCancel={() => setUpdateStatusModal(null)}
@@ -187,8 +187,8 @@ const TracksList = () => {
       >
         <p>
           Are you sure you want to{" "}
-          {UpdateStatusModal?.status == 0 ? "Active" : "deActive"} the Following
-          track:
+          {UpdateStatusModal?.status == 0 ? "Active" : "Deactivate"} the
+          Following track:
           <br />
           <strong>{UpdateStatusModal?.name}</strong>
         </p>

@@ -59,7 +59,7 @@ export default function Posts() {
             label: (
               <Link
                 to={`${process.env.PUBLIC_URL}/posts/${row?.post_id}/postDetails`}
-                className="btn btn-primary"
+                className="btn btn-primary text-white"
                 // onClick={() =>
                 //   navigate(
                 //     `${process.env.PUBLIC_URL}/posts/${row?.post_id}/postDetails`
