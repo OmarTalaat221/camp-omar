@@ -1,4 +1,4 @@
-import { Button, Dropdown, Input, Modal, Select, Table } from "antd";
+import { Button, Dropdown, Input, Modal, Select, Table, Tabs } from "antd";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Breadcrumbs from "../../../component/common/breadcrumb/breadcrumb";
 import axios from "axios";
@@ -32,6 +32,11 @@ const GroupsList = () => {
   const [GroupAdminModal, setGroupAdminModal] = useState(false);
   const [GroupAdmins, setGroupAdmins] = useState([]);
   const [currentGroupData, setCurrentGroupData] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") || "all"
+  );
+
+  const statusFromUrl = searchParams.get("status") || "all";
 
   const getFiltersFromUrl = () => {
     const urlFilters = {};
@@ -287,7 +292,8 @@ const GroupsList = () => {
       page = currentPage,
       limit = pageSize,
       currentFilters = filters,
-      currentSort = sortOrder
+      currentSort = sortOrder,
+      statusFilter = "all"
     ) => {
       if (!adminId) return;
 
@@ -323,6 +329,7 @@ const GroupsList = () => {
             sort_field: sortField,
             sort_direction: sortDirection,
           }),
+          ...(statusFilter !== "all" && { status: statusFilter }), // ADD THIS
         };
         endpoint = BASE_URL + "/admin/groups/select_groups_by_round.php";
       } else {
@@ -335,6 +342,7 @@ const GroupsList = () => {
             sort_field: sortField,
             sort_direction: sortDirection,
           }),
+          ...(statusFilter !== "all" && { status: statusFilter }),
         };
         endpoint = BASE_URL + "/admin/groups/get_groups_with_pagination.php";
       }
@@ -371,7 +379,7 @@ const GroupsList = () => {
         setLoading(false);
       }
     },
-    [adminId, roundId, currentPage, pageSize, filters, sortOrder]
+    [adminId, roundId, currentPage, pageSize, filters, sortOrder, statusFilter]
   );
   const handleGetGroupsSelection = useCallback(async () => {
     if (!adminId) return;
@@ -404,10 +412,10 @@ const GroupsList = () => {
       prevParams.currentPage !== currentPage ||
       prevParams.pageSize !== pageSize ||
       JSON.stringify(prevParams.filters) !== JSON.stringify(filters) ||
-      JSON.stringify(prevParams.sortOrder) !== JSON.stringify(sortOrder);
-
+      JSON.stringify(prevParams.sortOrder) !== JSON.stringify(sortOrder) ||
+      prevParams.statusFilter !== statusFilter;
     if (isInitialMount.current || paramsChanged) {
-      handleGetGroups(currentPage, pageSize, filters, sortOrder);
+      handleGetGroups(currentPage, pageSize, filters, sortOrder, statusFilter);
 
       if (isInitialMount.current) {
         handleGetGroupsSelection();
@@ -419,6 +427,7 @@ const GroupsList = () => {
         pageSize,
         filters,
         sortOrder,
+        statusFilter,
       };
       isInitialMount.current = false;
     }
@@ -429,14 +438,19 @@ const GroupsList = () => {
     filters,
     sortOrder,
     adminId,
+    statusFilter,
     handleGetGroups,
     handleGetGroupsSelection,
   ]);
 
-  // ✅ Update URL with pagination
-  // ✅ UPDATED: Include filters and sort in URL
   const updateSearchParams = useCallback(
-    (newPage, newLimit, newFilters = filters, newSort = sortOrder) => {
+    (
+      newPage,
+      newLimit,
+      newFilters = filters,
+      newSort = sortOrder,
+      newStatus = statusFilter
+    ) => {
       const params = new URLSearchParams();
 
       // Add round_id if exists
@@ -446,14 +460,17 @@ const GroupsList = () => {
       params.set("page", String(newPage));
       params.set("limit", String(newLimit));
 
-      // ✅ NEW: Add filters to URL
+      if (newStatus && newStatus !== "all") {
+        params.set("status", newStatus);
+      }
+      // Add filters to URL
       Object.keys(newFilters).forEach((key) => {
         if (newFilters[key] && newFilters[key].length > 0) {
           params.set(key, newFilters[key][0]);
         }
       });
 
-      // ✅ NEW: Add sort to URL
+      // Add sort to URL
       Object.keys(newSort).forEach((key) => {
         if (newSort[key]) {
           params.set("sort_field", key);
@@ -468,8 +485,21 @@ const GroupsList = () => {
         setSearchParams(params, { replace: true });
       }
     },
-    [roundId, searchParams, setSearchParams, filters, sortOrder]
+    [roundId, searchParams, setSearchParams, filters, sortOrder, statusFilter]
   );
+
+  const handleStatusTabChange = (key) => {
+    setStatusFilter(key);
+    setCurrentPage(1);
+    updateSearchParams(1, pageSize, filters, sortOrder, key);
+  };
+
+  useEffect(() => {
+    const urlStatus = searchParams.get("status") || "all";
+    if (urlStatus !== statusFilter) {
+      setStatusFilter(urlStatus);
+    }
+  }, [searchParams]);
 
   const handleTableChange = useCallback(
     (pagination, tableFilters, sorter) => {
@@ -478,22 +508,26 @@ const GroupsList = () => {
       const newPage = pagination.current || 1;
       const newLimit = pagination.pageSize || 10;
 
-      // Build new sort object
       const newSort =
         sorter && sorter.field && sorter.order
           ? { [sorter.field]: sorter.order }
           : {};
 
-      // Update state
       setCurrentPage(newPage);
       setPageSize(newLimit);
       setFilters(tableFilters);
       setSortOrder(newSort);
 
-      // ✅ NEW: Update URL with filters and sort
-      updateSearchParams(newPage, newLimit, tableFilters, newSort);
+      // ✅ ADD: Pass statusFilter
+      updateSearchParams(
+        newPage,
+        newLimit,
+        tableFilters,
+        newSort,
+        statusFilter
+      );
     },
-    [updateSearchParams]
+    [updateSearchParams, statusFilter] // ✅ ADD statusFilter dependency
   );
 
   function handleAddGroup() {
@@ -510,7 +544,13 @@ const GroupsList = () => {
         if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
           setAddGroupModal(false);
-          handleGetGroups(currentPage, pageSize, filters, sortOrder);
+          handleGetGroups(
+            currentPage,
+            pageSize,
+            filters,
+            sortOrder,
+            statusFilter
+          );
           handleGetGroupsSelection();
         } else {
           toast.error(res?.data?.message);
@@ -536,7 +576,13 @@ const GroupsList = () => {
         if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
           setDeleteGroupModal(false);
-          handleGetGroups(currentPage, pageSize, filters, sortOrder);
+          handleGetGroups(
+            currentPage,
+            pageSize,
+            filters,
+            sortOrder,
+            statusFilter
+          );
           handleGetGroupsSelection();
         } else {
           toast.error(res?.data?.message);
@@ -562,7 +608,13 @@ const GroupsList = () => {
         if (res?.data?.status === "success") {
           toast.success(res?.data?.message);
           setEditGroupModal(false);
-          handleGetGroups(currentPage, pageSize, filters, sortOrder);
+          handleGetGroups(
+            currentPage,
+            pageSize,
+            filters,
+            sortOrder,
+            statusFilter
+          );
           handleGetGroupsSelection();
         } else {
           toast.error(res?.data?.message);
@@ -755,7 +807,13 @@ const GroupsList = () => {
           setAssignGroupModal(false);
           handleSelectGroup(rowData?.group_id);
           setAssignData({ level_id: "", student_max: null });
-          handleGetGroups(currentPage, pageSize, filters, sortOrder);
+          handleGetGroups(
+            currentPage,
+            pageSize,
+            filters,
+            sortOrder,
+            statusFilter
+          );
           handleGetGroupsSelection();
         } else {
           toast.error(res?.data?.message);
@@ -827,7 +885,13 @@ const GroupsList = () => {
           toast.success(res?.data?.message);
           setUpdateStudentLevelModal(false);
           setGroup(null);
-          handleGetGroups(currentPage, pageSize, filters, sortOrder);
+          handleGetGroups(
+            currentPage,
+            pageSize,
+            filters,
+            sortOrder,
+            statusFilter
+          );
           handleGetGroupsSelection();
         } else {
           toast.error(res?.data?.message);
@@ -1324,6 +1388,17 @@ const GroupsList = () => {
             <div className="card">
               <div className="card-header">
                 <h5>List Groups</h5>
+
+                <Tabs
+                  activeKey={statusFilter}
+                  onChange={handleStatusTabChange}
+                  items={[
+                    { key: "all", label: "All" },
+                    { key: "current", label: "Current" },
+                    { key: "finished", label: "Finished" },
+                  ]}
+                  style={{ marginBottom: 16 }}
+                />
                 <div className="d-flex gap-2">
                   {(Object.keys(filters).length > 0 ||
                     Object.keys(sortOrder).length > 0) && (
@@ -1332,7 +1407,7 @@ const GroupsList = () => {
                         setFilters({});
                         setSortOrder({});
                         setCurrentPage(1);
-                        updateSearchParams(1, pageSize, {}, {});
+                        updateSearchParams(1, pageSize, {}, {}, statusFilter);
                       }}
                       style={{ margin: "10px 0" }}
                     >
@@ -1345,6 +1420,7 @@ const GroupsList = () => {
                         setCurrentPage(1);
                         setFilters({});
                         setSortOrder({});
+                        setStatusFilter("all");
                         navigate("/groups?page=1&limit=10");
                       }}
                       style={{ margin: "10px 0" }}
