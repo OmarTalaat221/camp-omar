@@ -44,6 +44,8 @@ export default function ListStudents() {
   const [loading, setLoading] = useState(false);
   const [OpenAddModal, setOpenAddModal] = useState(false);
   const [paymentMode, setPaymentMode] = useState("assign_now");
+  const [paymentInfo, setPaymentInfo] = useState({});
+
   const [form] = Form.useForm();
   const [packagesStudent, setPackagesStudent] = useState([]);
 
@@ -68,6 +70,13 @@ export default function ListStudents() {
   const [exceptionsData, setExceptionsData] = useState([]);
   const [exceptionLoading, setExceptionLoading] = useState(false);
   const [rowData, setRowData] = useState(null);
+
+  // ✅ Payment Modal States
+  const [openPaymentModal, setOpenPaymentModal] = useState(false);
+  const [paymentType, setPaymentType] = useState("pay_now");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [createdSubscriptionId, setCreatedSubscriptionId] = useState(null); // لحفظ ID الاشتراك اللي اتعمل
 
   // ✅ Pagination state from API
   const [paginationData, setPaginationData] = useState({
@@ -189,7 +198,6 @@ export default function ListStudents() {
           <div style={{ padding: 8 }}>
             <Input
               placeholder={`Search ${dataIndex}`}
-              // ✅ استخدم defaultValue بدلاً من value
               defaultValue={currentValue}
               onChange={(e) => {
                 setSelectedKeys(e.target.value ? [e.target.value] : []);
@@ -233,12 +241,12 @@ export default function ListStudents() {
       filtered: !!currentValue,
     };
   };
+
   const columns = [
     {
       id: "student_id",
       dataIndex: "student_id",
       title: "Student ID",
-      // ...getColumnSearchProps("student_id"),
     },
     {
       id: "name",
@@ -267,7 +275,6 @@ export default function ListStudents() {
       id: "parent_phone",
       dataIndex: "parent_phone",
       title: "Parent Phone",
-      // ...getColumnSearchProps("parent_phone"),
     },
     {
       id: "branch_name",
@@ -319,7 +326,6 @@ export default function ListStudents() {
                   return;
                 }
                 e.preventDefault();
-
                 navigate(`/students/list/${row?.student_id}/profile`);
               }}
             >
@@ -466,7 +472,6 @@ export default function ListStudents() {
 
     const params = new URLSearchParams({
       admin_type: AdminData[0]?.type,
-
       page: currentPage.toString(),
       limit: currentLimit.toString(),
     });
@@ -482,7 +487,7 @@ export default function ListStudents() {
     });
     axios
       .get(
-        `${BASE_URL}/admin/home/select_students_with_pagination.php?${params.toString()}`
+        `${BASE_URL}/admin/home/select_students_with_pagination_new_server.php?${params.toString()}`
       )
       .then((res) => {
         if (res?.data?.status == "success") {
@@ -542,7 +547,25 @@ export default function ListStudents() {
       .finally(() => setSubmitting(false));
   };
 
+  // ✅ ريكويست 1: إضافة الاشتراك
   const handelAddStudentSub = async () => {
+    // Validation
+    if (!NewSubscriptionData?.package_id) {
+      toast.error("Please select a package");
+      return;
+    }
+
+    if (paymentMode === "assign_now" || paymentMode === "assign_group_level") {
+      if (!NewSubscriptionData?.level_id) {
+        toast.error("Please select a level");
+        return;
+      }
+      if (!NewSubscriptionData?.group_id) {
+        toast.error("Please select a group");
+        return;
+      }
+    }
+
     setSubmitting(true);
     let dataSend;
 
@@ -554,7 +577,6 @@ export default function ListStudents() {
         group_id: NewSubscriptionData?.group_id,
         student_id: rowData?.student_id,
         admin_id: AdminData[0].admin_id,
-        payed: NewSubscriptionData?.payed,
         status: "GL",
       };
     } else if (paymentMode == "assign_later") {
@@ -565,7 +587,6 @@ export default function ListStudents() {
         group_id: 0,
         student_id: rowData?.student_id,
         admin_id: AdminData[0].admin_id,
-        payed: NewSubscriptionData?.payed,
         status: "later",
       };
     } else {
@@ -576,35 +597,92 @@ export default function ListStudents() {
         group_id: NewSubscriptionData?.group_id,
         student_id: rowData?.student_id,
         admin_id: AdminData[0].admin_id,
-        payed: NewSubscriptionData?.payed,
         status: "now",
       };
     }
 
-    axios
-      .post(
-        BASE_URL + "/admin/subscription/make_new_subscription.php",
+    try {
+      const res = await axios.post(
+        BASE_URL + "/admin/subscription/make_new_server_subscription.php",
         dataSend
-      )
-      .then((res) => {
-        if (res?.data?.status == "success") {
-          toast.success(res?.data?.message);
-          setAddStudentSub(null);
-          handleGetAllStudents();
-          setNewSubscriptionData({
-            type: "level",
-            package_id: null,
-            level_id: null,
-            group_id: null,
-            student_id: null,
-            payed: null,
-          });
-        } else {
-          toast.error(res?.data?.message);
-        }
-      })
-      .catch((e) => console.log(e))
-      .finally(() => setSubmitting(false));
+      );
+
+      if (res?.data?.status === "success") {
+        toast.success("Subscription created successfully!");
+
+        // ✅ حفظ ID الاشتراك اللي رجع من الـ API
+        setPaymentInfo(res?.data?.payment_info);
+
+        // ✅ إغلاق modal الاشتراك وفتح modal الدفع
+        setAddStudentSub(null);
+        setPaymentAmount("");
+        setPaymentType("pay_now");
+        setOpenPaymentModal(true);
+      } else {
+        toast.error(res?.data?.message);
+      }
+    } catch (e) {
+      console.log(e);
+      toast.error("Error creating subscription");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ✅ ريكويست 2: الدفع (Pay Now أو Pay Later)
+  const handlePaymentSubmit = async () => {
+    if (!paymentAmount) {
+      toast.error("Please enter the payment amount");
+      return;
+    }
+
+    if (paymentAmount > paymentInfo?.remaining_money) {
+      toast.error("Payment amount cannot be greater than remaining money");
+      return;
+    }
+
+    setPaymentSubmitting(true);
+
+    const dataSend = {
+      // subscription_id: createdSubscriptionId,
+      student_id: rowData?.student_id,
+      admin_id: AdminData[0].admin_id,
+      // payment_type: paymentType, // "pay_now" أو "pay_later"
+      payed: paymentAmount,
+    };
+
+    try {
+      // ✅ Endpoint واحد للدفع
+      const res = await axios.post(
+        BASE_URL + "/admin/home/add_payment_to_package_new_server.php",
+        dataSend
+      );
+
+      if (res?.data?.status === "success") {
+        toast.success(res?.data?.message);
+        handleClosePaymentModal();
+        handleGetAllStudents();
+
+        // Reset all data
+        setNewSubscriptionData({
+          type: "level",
+          package_id: null,
+          level_id: null,
+          group_id: null,
+          student_id: null,
+          payed: null,
+        });
+        setCreatedSubscriptionId(null);
+        setRowData(null);
+      } else {
+        toast.error(res?.data?.message);
+      }
+    } catch (e) {
+      console.log(e);
+      toast.error("Error processing payment");
+    } finally {
+      setPaymentSubmitting(false);
+    }
   };
 
   function handleSelectLevels() {
@@ -742,12 +820,18 @@ export default function ListStudents() {
     setRowData(null);
   };
 
-  // ✅ Clear all filters
+  // ✅ إغلاق Payment Modal
+  const handleClosePaymentModal = () => {
+    setOpenPaymentModal(false);
+    setPaymentAmount("");
+    setPaymentType("pay_now");
+    setCreatedSubscriptionId(null);
+  };
+
   const handleClearAllFilters = () => {
     setSearchParams({ page: "1", limit: currentLimit.toString() });
   };
 
-  // ✅ Check if any filters are active
   const hasActiveFilters = Array.from(searchParams.keys()).some(
     (key) => key !== "page" && key !== "limit"
   );
@@ -797,7 +881,6 @@ export default function ListStudents() {
               </div>
 
               <div className="card-body">
-                {/* ✅ Active Filters Display */}
                 {hasActiveFilters && (
                   <Alert
                     message={
@@ -823,7 +906,6 @@ export default function ListStudents() {
                   />
                 )}
 
-                {/* ✅ Pagination Info */}
                 <div
                   style={{
                     marginBottom: "15px",
@@ -861,7 +943,6 @@ export default function ListStudents() {
                   </Select>
                 </div>
 
-                {/* Table */}
                 <Table
                   rowKey={(record) => record.student_id}
                   onChange={handleTableChange}
@@ -874,7 +955,6 @@ export default function ListStudents() {
                   pagination={false}
                 />
 
-                {/* ✅ Custom Pagination */}
                 <div
                   style={{
                     marginTop: "20px",
@@ -1026,7 +1106,7 @@ export default function ListStudents() {
               loading={submitting}
               disabled={submitting}
             >
-              Add
+              Add Subscription
             </Button>
             <Button onClick={handleCloseSubscriptionModal}>Cancel</Button>
           </>
@@ -1220,48 +1300,262 @@ export default function ListStudents() {
               </div>
             </>
           )}
+        </>
+      </Modal>
 
-          {(paymentMode == "assign_now" || paymentMode == "assign_later") && (
-            <div className="form_field">
-              <label className="form_label" style={{ marginBottom: "8px" }}>
-                Student Paid
-              </label>
-              <input
-                type="number"
-                className="form_input"
-                value={NewSubscriptionData?.payed || ""}
-                onWheel={(e) => e.target.blur()}
-                onChange={(e) =>
-                  setNewSubscriptionData({
-                    ...NewSubscriptionData,
-                    payed: e.target.value,
-                  })
+      {/* ✅ Payment Modal - يظهر بعد إنشاء الاشتراك */}
+      {/* Payment Modal */}
+      <Modal
+        title="Payment"
+        open={openPaymentModal}
+        onCancel={handleClosePaymentModal}
+        centered
+        footer={
+          <>
+            <Button
+              type="primary"
+              onClick={() => {
+                if (paymentType == "pay_now") {
+                  handlePaymentSubmit();
+                } else {
+                  handleClosePaymentModal();
                 }
+              }}
+              loading={paymentSubmitting}
+              disabled={paymentSubmitting}
+              style={{
+                backgroundColor: "rgb(235, 93, 34)",
+                borderColor: "rgb(235, 93, 34)",
+              }}
+            >
+              {paymentType === "pay_now"
+                ? "Confirm Payment"
+                : "Confirm Pay Later"}
+            </Button>
+            <Button onClick={handleClosePaymentModal}>Pay Later</Button>
+          </>
+        }
+      >
+        {/* Payment Type Tabs */}
+        {/* <div style={{ marginBottom: "24px" }}>
+          <div style={{ display: "flex", gap: "0", justifyContent: "center" }}>
+            <div
+              onClick={() => setPaymentType("pay_now")}
+              style={{
+                padding: "16px 40px",
+                cursor: "pointer",
+                borderRadius: "8px",
+                border: "2px solid rgb(235, 93, 34)",
+                backgroundColor:
+                  paymentType === "pay_now"
+                    ? "rgb(235, 93, 34)"
+                    : "transparent",
+                color: paymentType === "pay_now" ? "#fff" : "rgb(235, 93, 34)",
+                fontWeight: "700",
+                fontSize: "16px",
+                textAlign: "center",
+                transition: "all 0.3s ease",
+                minWidth: "140px",
+              }}
+            >
+              Pay Now
+            </div>
+          </div>
+        </div> */}
+
+        {/* Student Payment Info */}
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "16px",
+            backgroundColor: "#fff",
+            borderRadius: "8px",
+            border: "1px solid #ffd591",
+          }}
+        >
+          <h4
+            style={{
+              margin: "0 0 16px 0",
+              color: "rgb(235, 93, 34)",
+              fontWeight: "700",
+            }}
+          >
+            Payment Details
+          </h4>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
+            {/* Total Money */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 14px",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "6px",
+              }}
+            >
+              <span style={{ color: "#595959", fontWeight: "500" }}>
+                Total Amount:
+              </span>
+              <span
+                style={{
+                  fontWeight: "700",
+                  fontSize: "16px",
+                  color: "#262626",
+                }}
+              >
+                {paymentInfo?.total_money || 0} EGP
+              </span>
+            </div>
+
+            {/* Student Payed */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 14px",
+                backgroundColor: "#f6ffed",
+                borderRadius: "6px",
+                border: "1px solid #b7eb8f",
+              }}
+            >
+              <span style={{ color: "#389e0d", fontWeight: "500" }}>
+                Amount Paid:
+              </span>
+              <span
+                style={{
+                  fontWeight: "700",
+                  fontSize: "16px",
+                  color: "#52c41a",
+                }}
+              >
+                {paymentInfo?.student_payed || 0} EGP
+              </span>
+            </div>
+
+            {/* Remaining Money */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 14px",
+                backgroundColor:
+                  (paymentInfo?.remaining_money || 0) > 0
+                    ? "#fff2f0"
+                    : "#f6ffed",
+                borderRadius: "6px",
+                border: `1px solid ${
+                  (paymentInfo?.remaining_money || 0) > 0
+                    ? "#ffccc7"
+                    : "#b7eb8f"
+                }`,
+              }}
+            >
+              <span
+                style={{
+                  color:
+                    (paymentInfo?.remaining_money || 0) > 0
+                      ? "#cf1322"
+                      : "#389e0d",
+                  fontWeight: "500",
+                }}
+              >
+                Remaining Amount:
+              </span>
+              <span
+                style={{
+                  fontWeight: "700",
+                  fontSize: "18px",
+                  color:
+                    (paymentInfo?.remaining_money || 0) > 0
+                      ? "#f5222d"
+                      : "#52c41a",
+                }}
+              >
+                {paymentInfo?.remaining_money || 0} EGP
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pay Now Content */}
+        {paymentType === "pay_now" && (
+          <div
+            style={{
+              padding: "20px",
+              backgroundColor: "#fff",
+              borderRadius: "8px",
+              border: "1px solid rgb(235, 93, 34, 0.3)",
+            }}
+          >
+            <div className="form_field">
+              <label
+                className="form_label"
+                style={{
+                  marginBottom: "12px",
+                  display: "block",
+                  fontWeight: "600",
+                  color: "rgb(235, 93, 34)",
+                  fontSize: "15px",
+                }}
+              >
+                Enter Payment Amount
+              </label>
+              <Input
+                type="number"
+                placeholder="Enter amount paid by student"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                onWheel={(e) => e.target.blur()}
+                style={{
+                  padding: "12px",
+                  fontSize: "16px",
+                  borderRadius: "6px",
+                }}
+                prefix="EGP"
+                size="large"
               />
             </div>
-          )}
+            <Alert
+              message="The payment will be recorded immediately."
+              type="warning"
+              showIcon
+              style={{ marginTop: "16px" }}
+            />
+          </div>
+        )}
 
-          {paymentMode == "assign_group_level" &&
-            rowData?.student_remaining_money > 0 && (
-              <div className="form_field">
-                <label className="form_label" style={{ marginBottom: "8px" }}>
-                  Student Paid
-                </label>
-                <input
-                  type="number"
-                  className="form_input"
-                  value={NewSubscriptionData?.payed || ""}
-                  onWheel={(e) => e.target.blur()}
-                  onChange={(e) =>
-                    setNewSubscriptionData({
-                      ...NewSubscriptionData,
-                      payed: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            )}
-        </>
+        {/* Pay Later Content */}
+        {paymentType === "pay_later" && (
+          <div
+            style={{
+              padding: "20px",
+              backgroundColor: "#fff7e6",
+              borderRadius: "8px",
+              border: "1px solid rgb(235, 93, 34, 0.3)",
+            }}
+          >
+            <Alert
+              message="Pay Later Selected"
+              description={
+                <div>
+                  <p style={{ margin: "8px 0" }}>
+                    Payment will be marked as pending.
+                  </p>
+                  <p style={{ margin: "8px 0" }}>
+                    Student will need to complete payment later.
+                  </p>
+                </div>
+              }
+              type="warning"
+              showIcon
+            />
+          </div>
+        )}
       </Modal>
 
       {/* Exceptions Modal */}

@@ -847,11 +847,11 @@ const StudentProfile = () => {
         dataIndex: "date",
         key: "date",
       },
-      {
-        title: "total price",
-        dataIndex: "total_price",
-        key: "total_price",
-      },
+      // {
+      //   title: "total price",
+      //   dataIndex: "total_price",
+      //   key: "total_price",
+      // },
       {
         title: "status",
         dataIndex: "status",
@@ -864,9 +864,9 @@ const StudentProfile = () => {
         render: (_, row) => (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <Button onClick={() => handlePrint(row)}>Print receipt</Button>
-            <Button onClick={() => openUpdateInvoiceModal(row)}>
+            {/* <Button onClick={() => openUpdateInvoiceModal(row)}>
               Update All
-            </Button>
+            </Button> */}
             <Button
               type="default"
               style={{
@@ -1006,7 +1006,9 @@ const StudentProfile = () => {
                 <Table
                   rowKey={(record) => record.payment_id}
                   columns={Payment_columns}
-                  dataSource={StudentData[0]?.student_payments}
+                  dataSource={StudentData[0]?.student_payments?.filter(
+                    (e) => e?.status == "payment"
+                  )}
                 />
               </div>
             </div>
